@@ -14,11 +14,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.model_selection import KFold
 
-from apex import amp
 import os
 import cv2
 import glob
-import pydicom
 import numpy as np
 import pandas as pd
 import torch.optim as optim
@@ -37,6 +35,8 @@ import datetime
 
 import torchvision
 from torchvision import transforms as T
+from torchvision.models.resnet import ResNet, Bottleneck
+
 
 from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
                            VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
@@ -45,11 +45,12 @@ from albumentations import (Cutout, Compose, Normalize, RandomRotate90, Horizont
                            )
 
 from tqdm import tqdm
+from apex import amp
+
 from apex.parallel import DistributedDataParallel as DDP
 from apex.fp16_utils import *
 from apex import amp, optimizers
 from apex.multi_tensor_apply import multi_tensor_applier
-from apex.optimizers.fused_adam import FusedAdam
 
 
 import warnings
@@ -134,6 +135,12 @@ class IntracranialDataset(Dataset):
         else:      
             return {'image': img}
 
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+if n_gpu > 0:
+    torch.cuda.manual_seed_all(SEED)
+torch.backends.cudnn.deterministic = True
 # Data loaders
 transform_train = Compose([
     ShiftScaleRotate(),
@@ -143,9 +150,6 @@ transform_train = Compose([
 transform_test= Compose([
     ToTensor()
 ])
-
-
-
     
 logger.info('Load Dataframes')
 dir_train_img = os.path.join(path_data, 'stage_1_train_images_jpg')
@@ -185,10 +189,16 @@ trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_work
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 
+from torch.hub import load_state_dict_from_url
+from torchvision.models.resnet import ResNet, Bottleneck
 
+'''
+# Run below, with internet access
 model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
+torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
+'''
+model = torch.load(os.path.join(WORK_DIR, 'checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
 model.fc = torch.nn.Linear(2048, n_classes)
-
 model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
