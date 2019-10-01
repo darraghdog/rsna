@@ -199,8 +199,9 @@ from torchvision.models.resnet import ResNet, Bottleneck
 model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
 torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
 '''
-model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-model.fc = torch.nn.Linear(2048, n_classes)
+#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+model = torchvision.models.densenet121(pretrained=True)
+model.classifier = torch.nn.Linear(1024, n_classes)
 model.to(device)
 
 criterion = torch.nn.BCEWithLogitsLoss()
@@ -215,7 +216,7 @@ for epoch in range(n_epochs):
     model.train()    
     tr_loss = 0
     for step, batch in enumerate(trnloader):
-        if step%10==0:
+        if step%1000==0:
             logger.info('Train step {} of {}'.format(step, len(trnloader)))
         inputs = batch["image"]
         labels = batch["labels"]

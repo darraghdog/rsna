@@ -69,6 +69,8 @@ parser.add_option('-w', '--workpath', action="store", dest="workpath", help="Wor
 parser.add_option('-f', '--weightsname', action="store", dest="weightsname", help="Weights file name", default="pytorch_model.bin")
 parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate", default="0.00005")
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
+parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
+
 
 options, args = parser.parse_args()
 package_dir = options.rootpath
@@ -93,6 +95,7 @@ for (k,v) in options.__dict__.items():
     logger.info('{}{}'.format(k.ljust(20), v))
 
 SEED = int(options.seed)
+SIZE = int(options.size)
 EPOCHS = int(options.epochs)
 n_epochs = EPOCHS 
 lr=float(options.lr)
@@ -125,8 +128,8 @@ class IntracranialDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.data.loc[idx, 'Image'] + '.jpg')
         img = cv2.imread(img_name)         
-        if (img.shape[0]!=512) :
-            img = cv2.resize(img,(512,512))
+        if (SIZE!=512) :
+            img = cv2.resize(img,(SIZE,SIZE))
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
@@ -215,7 +218,7 @@ for epoch in range(n_epochs):
     model.train()    
     tr_loss = 0
     for step, batch in enumerate(trnloader):
-        if step%10==0:
+        if step%1000==0:
             logger.info('Train step {} of {}'.format(step, len(trnloader)))
         inputs = batch["image"]
         labels = batch["labels"]
