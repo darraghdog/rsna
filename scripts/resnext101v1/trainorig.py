@@ -239,13 +239,13 @@ for epoch in range(n_epochs):
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        model.eval()
-        valls = []
         output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
         torch.save(model.state_dict(), output_model_file)
     else:
         input_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
         model.load_state_dict(torch.load(input_model_file))
+    model.eval()
+    valls = []
     for step, batch in enumerate(valloader):
         if step%1000==0:
             logger.info('Val step {} of {}'.format(step, len(valloader)))
