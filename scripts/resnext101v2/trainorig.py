@@ -172,7 +172,7 @@ png = np.array(png)
 train = train.set_index('Image').loc[png].reset_index()
 
 # get fold
-valdf = train[train['fold']==fold].reset_index(drop=True)[:1000]
+valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
     
 # Data loaders
@@ -215,27 +215,35 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    for param in model.parameters():
-        param.requires_grad = True
-    model.train()    
-    tr_loss = 0
-    for step, batch in enumerate(trnloader):
-        if step%1000==0:
-            logger.info('Train step {} of {}'.format(step, len(trnloader)))
-        inputs = batch["image"]
-        labels = batch["labels"]
-        inputs = inputs.to(device, dtype=torch.float)
-        labels = labels.to(device, dtype=torch.float)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
-        tr_loss += loss.item()
-        optimizer.step()
-        optimizer.zero_grad()
-        del inputs, labels, outputs
-    epoch_loss = tr_loss / len(trnloader)
-    logger.info('Training Loss: {:.4f}'.format(epoch_loss))
+    if INFER not in ['TST', 'VAL']:
+        for param in model.parameters():
+            param.requires_grad = True
+        model.train()    
+        tr_loss = 0
+        for step, batch in enumerate(trnloader):
+            if step%1000==0:
+                logger.info('Train step {} of {}'.format(step, len(trnloader)))
+            inputs = batch["image"]
+            labels = batch["labels"]
+            inputs = inputs.to(device, dtype=torch.float)
+            labels = labels.to(device, dtype=torch.float)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+            tr_loss += loss.item()
+            optimizer.step()
+            optimizer.zero_grad()
+            del inputs, labels, outputs
+        epoch_loss = tr_loss / len(trnloader)
+        logger.info('Training Loss: {:.4f}'.format(epoch_loss))
+        for param in model.parameters():
+            param.requires_grad = False
+        output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
+        torch.save(model.state_dict(), output_model_file)
+    else:
+        input_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
+        model.load_state_dict(torch.load(input_model_file))
     for param in model.parameters():
         param.requires_grad = False
     model.eval()
@@ -252,6 +260,19 @@ for epoch in range(n_epochs):
                     np.concatenate(valls, 0).flatten(), \
                     sample_weight = weights)
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
-    output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
-    torch.save(model.state_dict(), output_model_file)
-    
+    if INFER in ['TST', 'VAL']:
+        valpreddf = pd.DataFrame(np.concatenate(valls, 0))
+        valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
+        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
+    if INFER == 'TST':
+        tstls = []
+        for step, batch in enumerate(tstloader):
+            if step%1000==0:
+                logger.info('Tst step {} of {}'.format(step, len(tstloader)))
+            inputs = batch["image"]
+            inputs = inputs.to(device, dtype=torch.float)
+            out = model(inputs)
+            tstls.append(torch.sigmoid(out).detach().cpu().numpy())
+        tstpreddf = pd.DataFrame(np.concatenate(tstls, 0))
+        tstdf.to_csv('tst_act_fold.csv', compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
