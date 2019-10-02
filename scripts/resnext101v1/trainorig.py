@@ -172,7 +172,7 @@ png = np.array(png)
 train = train.set_index('Image').loc[png].reset_index()
 
 # get fold
-valdf = train[train['fold']==fold].reset_index(drop=True)[:1000]
+valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
     
 # Data loaders
@@ -191,8 +191,8 @@ tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_te
 
 num_workers = 16
 trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-valloader = DataLoader(valdataset, batch_size=batch_size*2, shuffle=False, num_workers=num_workers)
-tstloader = DataLoader(tstdataset, batch_size=batch_size*2, shuffle=False, num_workers=num_workers)
+valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 
 from torch.hub import load_state_dict_from_url
 from torchvision.models.resnet import ResNet, Bottleneck
@@ -244,6 +244,8 @@ for epoch in range(n_epochs):
     else:
         input_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
         model.load_state_dict(torch.load(input_model_file))
+    for param in model.parameters():
+        param.requires_grad = False
     model.eval()
     valls = []
     for step, batch in enumerate(valloader):
@@ -259,9 +261,9 @@ for epoch in range(n_epochs):
                     sample_weight = weights)
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
     if INFER in ['TST', 'VAL']:
-        valpreddf = pd.Dataframe(np.concatenate(valls, 0))
-        valdf.to_csv('val_act_fold{}.csv'.format(fold), index = False)
-        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv'.format(fold, epoch), index = False)
+        valpreddf = pd.DataFrame(np.concatenate(valls, 0))
+        valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
+        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):
@@ -271,6 +273,6 @@ for epoch in range(n_epochs):
             inputs = inputs.to(device, dtype=torch.float)
             out = model(inputs)
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
-        tstpreddf = pd.Dataframe(np.concatenate(tstls, 0))
-        tstdf.to_csv('tst_act_fold.csv', index = False)
-        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv'.format(fold, epoch), index = False)
+        tstpreddf = pd.DataFrame(np.concatenate(tstls, 0))
+        tstdf.to_csv('tst_act_fold.csv', compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
