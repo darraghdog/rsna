@@ -69,6 +69,8 @@ parser.add_option('-w', '--workpath', action="store", dest="workpath", help="Wor
 parser.add_option('-f', '--weightsname', action="store", dest="weightsname", help="Weights file name", default="pytorch_model.bin")
 parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate", default="0.00005")
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
+parser.add_option('-a', '--infer', action="store", dest="infer", help="root directory", default="TRN")
+
 
 options, args = parser.parse_args()
 package_dir = options.rootpath
@@ -103,6 +105,7 @@ path_img = os.path.join(ROOT, options.imgpath)
 WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
+INFER=options.infer
 #classes = 1109
 device = 'cuda'
 print('Data path : {}'.format(path_data))
@@ -212,31 +215,37 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    for param in model.parameters():
-        param.requires_grad = True
-    model.train()    
-    tr_loss = 0
-    for step, batch in enumerate(trnloader):
-        if step%1000==0:
-            logger.info('Train step {} of {}'.format(step, len(trnloader)))
-        inputs = batch["image"]
-        labels = batch["labels"]
-        inputs = inputs.to(device, dtype=torch.float)
-        labels = labels.to(device, dtype=torch.float)
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
-        tr_loss += loss.item()
-        optimizer.step()
-        optimizer.zero_grad()
-        del inputs, labels, outputs
-    epoch_loss = tr_loss / len(trnloader)
-    logger.info('Training Loss: {:.4f}'.format(epoch_loss))
-    for param in model.parameters():
-        param.requires_grad = False
-    model.eval()
-    valls = []
+    if INFER not in ['TST', 'VAL']:
+        for param in model.parameters():
+            param.requires_grad = True
+        model.train()    
+        tr_loss = 0
+        for step, batch in enumerate(trnloader):
+            if step%1000==0:
+                logger.info('Train step {} of {}'.format(step, len(trnloader)))
+            inputs = batch["image"]
+            labels = batch["labels"]
+            inputs = inputs.to(device, dtype=torch.float)
+            labels = labels.to(device, dtype=torch.float)
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+            tr_loss += loss.item()
+            optimizer.step()
+            optimizer.zero_grad()
+            del inputs, labels, outputs
+        epoch_loss = tr_loss / len(trnloader)
+        logger.info('Training Loss: {:.4f}'.format(epoch_loss))
+        for param in model.parameters():
+            param.requires_grad = False
+        model.eval()
+        valls = []
+        output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
+        torch.save(model.state_dict(), output_model_file)
+    else:
+        input_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
+        model.load_state_dict(torch.load(input_model_file))
     for step, batch in enumerate(valloader):
         if step%1000==0:
             logger.info('Val step {} of {}'.format(step, len(valloader)))
@@ -249,6 +258,19 @@ for epoch in range(n_epochs):
                     np.concatenate(valls, 0).flatten(), \
                     sample_weight = weights)
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
-    output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
-    torch.save(model.state_dict(), output_model_file)
-    
+    if INFER in ['TST', 'VAL']:
+        valpreddf = pd.Dataframe(np.concatenate(valls, 0))
+        valdf.to_csv('val_act_fold{}.csv'.format(fold), index = False)
+        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv'.format(fold, epoch), index = False)
+    if INFER == 'TST':
+        tstls = []
+        for step, batch in enumerate(tstloader):
+            if step%1000==0:
+                logger.info('Tst step {} of {}'.format(step, len(tstloader)))
+            inputs = batch["image"]
+            inputs = inputs.to(device, dtype=torch.float)
+            out = model(inputs)
+            tstls.append(torch.sigmoid(out).detach().cpu().numpy())
+        tstpreddf = pd.Dataframe(np.concatenate(tstls, 0))
+        tstdf.to_csv('tst_act_fold.csv', index = False)
+        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv'.format(fold, epoch), index = False)
