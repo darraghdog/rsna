@@ -212,10 +212,12 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
+    for param in model.parameters():
+        param.requires_grad = True
     model.train()    
     tr_loss = 0
     for step, batch in enumerate(trnloader):
-        if step%10==0:
+        if step%1000==0:
             logger.info('Train step {} of {}'.format(step, len(trnloader)))
         inputs = batch["image"]
         labels = batch["labels"]

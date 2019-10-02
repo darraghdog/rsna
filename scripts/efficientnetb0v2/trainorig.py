@@ -202,11 +202,23 @@ from torchvision.models.resnet import ResNet, Bottleneck
 model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
 torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
 '''
-model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-model.fc = torch.nn.Linear(2048, n_classes)
+#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+#model.fc = torch.nn.Linear(2048, n_classes)
+torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
+model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+model.classifier = torch.nn.Linear(1280, n_classes)
 model.to(device)
 
+
+
+
 criterion = torch.nn.BCEWithLogitsLoss()
+def criterion(data, targets, criterion = torch.nn.BCEWithLogitsLoss()):
+    ''' Define custom loss function for weighted BCE on 'target' column '''
+    loss_all = criterion(data, targets)
+    loss_any = criterion(data[:,-1:], targets[:,-1:])
+    return (loss_all*6 + loss_any*1)/7
+
 plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
 
@@ -215,9 +227,9 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
+    model.train()   
     for param in model.parameters():
-        param.requires_grad = True
-    model.train()    
+        param.requires_grad = True 
     tr_loss = 0
     for step, batch in enumerate(trnloader):
         if step%1000==0:
@@ -247,10 +259,10 @@ for epoch in range(n_epochs):
         inputs = inputs.to(device, dtype=torch.float)
         out = model(inputs)
         valls.append(torch.sigmoid(out).detach().cpu().numpy())
+    preds =  np.concatenate(valls, 0).flatten().clip(1e-8, 1.-(1e-8))
     weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
     valloss = log_loss(valdf[label_cols].values.flatten(), \
-                    np.concatenate(valls, 0).flatten(), \
-                    sample_weight = weights)
+                    preds, sample_weight = weights)
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
     output_model_file = 'weights/model_v1_epoch{}.bin'.format(epoch)
     torch.save(model.state_dict(), output_model_file)
