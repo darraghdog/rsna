@@ -70,6 +70,7 @@ parser.add_option('-f', '--weightsname', action="store", dest="weightsname", hel
 parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate", default="0.00005")
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
 parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
+parser.add_option('-a', '--infer', action="store", dest="infer", help="root directory", default="TRN")
 
 
 options, args = parser.parse_args()
@@ -107,6 +108,8 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 #classes = 1109
+INFER=options.infer
+
 device = 'cuda'
 print('Data path : {}'.format(path_data))
 print('Image path : {}'.format(path_img))
@@ -261,9 +264,9 @@ for epoch in range(n_epochs):
                     sample_weight = weights)
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
     if INFER in ['TST', 'VAL']:
-        valpreddf = pd.DataFrame(np.concatenate(valls, 0))
+        valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
-        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
+        valpreddf.to_csv('val_pred_fold{}_epoch{}.csv.gz'.format(fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):
@@ -273,6 +276,6 @@ for epoch in range(n_epochs):
             inputs = inputs.to(device, dtype=torch.float)
             out = model(inputs)
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
-        tstpreddf = pd.DataFrame(np.concatenate(tstls, 0))
-        tstdf.to_csv('tst_act_fold.csv', compression='gzip', index = False)
-        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv'.format(fold, epoch), compression='gzip', index = False)
+        tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
+        test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_fold{}_epoch{}.csv.gz'.format(fold, epoch), compression='gzip', index = False)

@@ -181,7 +181,12 @@ trndf = train[train['fold']!=fold].reset_index(drop=True)
     
 # Data loaders
 transform_train = Compose([
-    ShiftScaleRotate(),
+    #ShiftScaleRotate(),
+    #CenterCrop(height = SIZE//10, width = SIZE//10, p=0.3),
+    HorizontalFlip(p=0.5),
+    ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, 
+                         rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
+    Transpose(p=0.5),
     ToTensor()
 ])
 
