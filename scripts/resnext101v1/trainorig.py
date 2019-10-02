@@ -191,8 +191,8 @@ tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_te
 
 num_workers = 16
 trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+valloader = DataLoader(valdataset, batch_size=batch_size*2, shuffle=False, num_workers=num_workers)
+tstloader = DataLoader(tstdataset, batch_size=batch_size*2, shuffle=False, num_workers=num_workers)
 
 from torch.hub import load_state_dict_from_url
 from torchvision.models.resnet import ResNet, Bottleneck
