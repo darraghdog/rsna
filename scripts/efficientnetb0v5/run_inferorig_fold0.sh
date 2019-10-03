@@ -1,5 +1,5 @@
 N_GPU=1
-WDIR='efficientnetb0v3'
+WDIR='efficientnetb0v5'
 FOLD=0
 SIZE='224'
 

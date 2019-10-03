@@ -107,10 +107,9 @@ path_img = os.path.join(ROOT, options.imgpath)
 WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
+#classes = 1109
 INFER=options.infer
 
-
-#classes = 1109
 device = 'cuda'
 print('Data path : {}'.format(path_data))
 print('Image path : {}'.format(path_img))
@@ -131,11 +130,9 @@ class IntracranialDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.data.loc[idx, 'Image'] + '.jpg')
-        #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
-        img = cv2.imread(img_name)      
+        img = cv2.imread(img_name)         
         if (SIZE!=512) :
             img = cv2.resize(img,(SIZE,SIZE))
-        #img = np.expand_dims(img, -1)
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
@@ -189,6 +186,7 @@ transform_train = Compose([
     ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, 
                          rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
     Transpose(p=0.5),
+    ShiftScaleRotate(),
     ToTensor()
 ])
 
@@ -197,7 +195,7 @@ transform_test= Compose([
 ])
 
 trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_train, labels=True)
-valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
+valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_train, labels=False)
 tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
 
 num_workers = 16
@@ -213,26 +211,11 @@ from torchvision.models.resnet import ResNet, Bottleneck
 model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
 torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
 '''
-#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-#model.fc = torch.nn.Linear(2048, n_classes)
-torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
-model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-model.classifier = torch.nn.Linear(1280, n_classes)
-#model.conv_stem.in_channels=1
-#model.conv_stem.weight.sum(dim=1, keepdim=True)
-#logger.info(model)
+model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+model.fc = torch.nn.Linear(2048, n_classes)
 model.to(device)
 
-
-
-
 criterion = torch.nn.BCEWithLogitsLoss()
-def criterion(data, targets, criterion = torch.nn.BCEWithLogitsLoss()):
-    ''' Define custom loss function for weighted BCE on 'target' column '''
-    loss_all = criterion(data, targets)
-    loss_any = criterion(data[:,-1:], targets[:,-1:])
-    return (loss_all*6 + loss_any*1)/7
-
 plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
 

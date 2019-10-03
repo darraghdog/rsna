@@ -118,6 +118,27 @@ print('Image path : {}'.format(path_img))
 os.environ["TORCH_HOME"] = os.path.join( path_data, 'mount')
 logger.info(os.system('$TORCH_HOME'))
 
+
+def autocrop(image, threshold=0):
+    """Crops any edges below or equal to threshold
+    Crops blank image to 1x1.
+    Returns cropped image.
+    https://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
+    """
+
+    if len(image.shape) == 3:
+        flatImage = np.max(image, 2)
+    else:
+        flatImage = image
+    rows = np.where(np.max(flatImage, 0) > threshold)[0]
+    cols = np.where(np.max(flatImage, 1) > threshold)[0]
+    image = image[cols[0]: cols[-1] + 1, rows[0]: rows[-1] + 1]
+    logger.info(image.shape)
+    sqside = max(image.shape)
+    imageout = np.zeros((sqside, sqside, 3), dtype = 'uint8')
+    imageout[:image.shape[0], :image.shape[1],:] = image.copy()
+    return imageout
+
 class IntracranialDataset(Dataset):
 
     def __init__(self, df, path, labels, transform=None):
@@ -133,8 +154,11 @@ class IntracranialDataset(Dataset):
         img_name = os.path.join(self.path, self.data.loc[idx, 'Image'] + '.jpg')
         #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
         img = cv2.imread(img_name)      
-        if (SIZE!=512) :
-            img = cv2.resize(img,(SIZE,SIZE))
+        try:
+            img = autocrop(img, threshold=0)  
+        except:
+            logger.info('Problem : {}'.format(img_name))      
+        img = cv2.resize(img,(SIZE,SIZE))
         #img = np.expand_dims(img, -1)
         if self.transform:       
             augmented = self.transform(image=img)
@@ -186,7 +210,7 @@ transform_train = Compose([
     #ShiftScaleRotate(),
     #CenterCrop(height = SIZE//10, width = SIZE//10, p=0.3),
     HorizontalFlip(p=0.5),
-    ShiftScaleRotate(shift_limit=0.1, scale_limit=0.1, 
+    ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
                          rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
     Transpose(p=0.5),
     ToTensor()

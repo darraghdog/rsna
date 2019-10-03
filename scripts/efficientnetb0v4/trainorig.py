@@ -108,7 +108,8 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
-
+beta=1.0
+MIXUP=True
 
 #classes = 1109
 device = 'cuda'
@@ -131,11 +132,9 @@ class IntracranialDataset(Dataset):
 
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.data.loc[idx, 'Image'] + '.jpg')
-        #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
-        img = cv2.imread(img_name)      
+        img = cv2.imread(img_name)         
         if (SIZE!=512) :
             img = cv2.resize(img,(SIZE,SIZE))
-        #img = np.expand_dims(img, -1)
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
@@ -145,6 +144,25 @@ class IntracranialDataset(Dataset):
             return {'image': img, 'labels': labels}    
         else:      
             return {'image': img}
+
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
 
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -218,9 +236,6 @@ torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
 torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
 model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
 model.classifier = torch.nn.Linear(1280, n_classes)
-#model.conv_stem.in_channels=1
-#model.conv_stem.weight.sum(dim=1, keepdim=True)
-#logger.info(model)
 model.to(device)
 
 
@@ -241,6 +256,9 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
+
+    mixup_prob_warmup = min(1.0, (1+epoch)/5)
+
     if INFER not in ['TST', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True
@@ -249,18 +267,46 @@ for epoch in range(n_epochs):
         for step, batch in enumerate(trnloader):
             if step%1000==0:
                 logger.info('Train step {} of {}'.format(step, len(trnloader)))
-            inputs = batch["image"]
-            labels = batch["labels"]
-            inputs = inputs.to(device, dtype=torch.float)
-            labels = labels.to(device, dtype=torch.float)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            x = batch["image"]
+            y = batch["labels"]
+            x = x.to(device, dtype=torch.float)
+            y = y.to(device, dtype=torch.float)
+            if MIXUP:
+                # Mixup Start
+                r = np.random.rand(1)
+                if beta > 0 and r < mixup_prob_warmup:
+                    # generate mixed sample
+                    lam = np.random.beta(beta, beta)
+                    rand_index = torch.randperm(x.size()[0]).cuda()
+                    y_a = y
+                    y_b = y[rand_index]
+                    bbx1, bby1, bbx2, bby2 = rand_bbox(x.size(), lam)
+                    #logger.info(x.shape)
+                    x = lam * x + (1 - lam) * x[rand_index]
+                    #logger.info(x.shape)
+                    #logger.info(50*'--')
+                    x = torch.autograd.Variable(x, requires_grad=True)
+                    y_a = torch.autograd.Variable(y_a)
+                    y_b = torch.autograd.Variable(y_b)
+                    outputs = model(x)
+                    loss = criterion(outputs, y_a) * lam + criterion(outputs, y_b) * (1. - lam)
+                    del y_a, y_b
+                else:
+                    x = torch.autograd.Variable(x, requires_grad=True)
+                    y = torch.autograd.Variable(y)
+                    outputs = model(x)
+                    loss = criterion(outputs, y)
+            else:
+                x = torch.autograd.Variable(x, requires_grad=True)
+                y = torch.autograd.Variable(y)
+                outputs = model(x)
+                loss = criterion(outputs, y)
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
             tr_loss += loss.item()
             optimizer.step()
             optimizer.zero_grad()
-            del inputs, labels, outputs
+            del x, y, outputs
         epoch_loss = tr_loss / len(trnloader)
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
