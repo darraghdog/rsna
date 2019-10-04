@@ -1,5 +1,8 @@
 ### RSNA Intracranial Hemorrhage Detection
 
+[Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)
+
+
 | Model         |Image Size|Epochs|Bag|TTA |Fold|Val     |LB   |
 | --------------|----------|------|---|----|----|--------|-----|
 | EfficientnetV0|224       |11    |1X |None|0   |0.08519 |???? |
