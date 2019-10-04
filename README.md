@@ -2,7 +2,7 @@
 
 [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)
 
-![Frontpage](https://pbs.twimg.com/media/EEt0_jPXoAACrgQ.jpg)
+![Frontpage](https://pbs.twimg.com/media/EEwmwgmWkAAIBd2.jpg)
 
 | Model         |Image Size|Epochs|Bag|TTA |Fold|Val     |LB   |
 | --------------|----------|------|---|----|----|--------|-----|
