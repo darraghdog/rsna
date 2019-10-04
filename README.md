@@ -1,5 +1,4 @@
-# rsna
-RSNA Intracranial Hemorrhage Detection
+### RSNA Intracranial Hemorrhage Detection
 
 | Model         |Image Size|Epochs|Bag|TTA |Fold|Val     |LB   |
 | --------------|----------|------|---|----|----|--------|-----|
