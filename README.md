@@ -7,8 +7,8 @@
 
 | Model         |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |
 | --------------|----------|------|---|----|----|--------|------|
-| EfficientnetV0|384       |4     |2X |None|0   |??????? |0.088 |
-| EfficientnetV0|384       |2     |1X |None|0   |??????? |0.085 |
+| EfficientnetV0|384       |4     |2X |None|0   |??????? |0.085 |
+| EfficientnetV0|384       |2     |1X |None|0   |??????? |0.088 |
 | EfficientnetV0|384       |11    |2X |None|0   |??????? |0.093 |
 | EfficientnetV0|224       |4     |2X |None|0   |0.08267 |????  |
 | EfficientnetV0|224       |2     |1X |None|0   |0.08519 |????  |
