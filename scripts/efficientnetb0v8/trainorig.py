@@ -131,8 +131,8 @@ def sampletrndf(df, epoch, RANDSAMPLE):
     patgrp = df.groupby('PatientID')['any'].sum()
     patgrp = patgrp[patgrp>0].index.tolist()
     iix = df.PatientID.isin(patgrp)
-    pd.concat([trnfdf[~iix].sample(frac=RANDSAMPLE, random_state=epoch), \
-                      trnfdf[iix]], 0).reset_index(drop = True)
+    return pd.concat([df[~iix].sample(frac=RANDSAMPLE, random_state=epoch), \
+                      df[iix]], 0).reset_index(drop = True)
 
 def autocrop(image, threshold=0):
     """Crops any edges below or equal to threshold
@@ -243,10 +243,10 @@ torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
 '''
 #model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
 #model.fc = torch.nn.Linear(2048, n_classes)
-#torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
-#model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-torch.hub.list('darraghdog/gen-efficientnet-pytorch', force_reload=True)  
-model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
+model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+#torch.hub.list('darraghdog/gen-efficientnet-pytorch', force_reload=True)  
+#model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
 model.classifier = torch.nn.Linear(1280, n_classes)
 model.to(device)
 
@@ -316,7 +316,7 @@ for epoch in range(n_epochs):
             tr_loss += loss.item()
             optimizer.step()
             optimizer.zero_grad()
-            del inputs, labels, outputs
+            del x, y, outputs
         epoch_loss = tr_loss / len(trnloader)
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
@@ -325,8 +325,8 @@ for epoch in range(n_epochs):
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
-        #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-        model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+        model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+        #model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
         model.classifier = torch.nn.Linear(1280, n_classes)
         model.to(device)
         for param in model.parameters():
@@ -349,7 +349,7 @@ for epoch in range(n_epochs):
     logger.info('Epoch {} logloss {}'.format(epoch, valloss))
     valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
     valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
-    valpreddf.to_csv('val_pred_{}_fold{}_epoch{}.csv.gz'.format(SIZE, fold, epoch), compression='gzip', index = False)
+    valpreddf.to_csv('val_pred_{}_fold{}_epoch{}_samp{}.csv.gz'.format(SIZE, fold, epoch, RANDSAMPLE), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):
@@ -361,4 +361,4 @@ for epoch in range(n_epochs):
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
         test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
-        tstpreddf.to_csv('tst_pred_{}_fold{}_epoch{}.csv.gz'.format(SIZE, fold, epoch), compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_{}_fold{}_epoch{}_samp{}.csv.gz'.format(SIZE, fold, epoch, RANDSAMPLE), compression='gzip', index = False)
