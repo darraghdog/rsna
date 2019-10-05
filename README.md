@@ -9,12 +9,13 @@
 
 | Model          |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
-| EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |                                 |
-| EfficientnetV0 |384       |2     |1X |None|0   |0.07931 |0.088 |                                 |
-| EfficientnetV0 |384       |11    |2X |None|0   |0.08330 |0.093 |                                 |
-| EfficientnetV0 |224       |4     |2X |None|0   |0.08267 |????  |                                 |
-| EfficientnetV0 |224       |2     |1X |None|0   |0.08519 |????  |                                 |
-| EfficientnetV0 |224       |11    |2X |None|0   |0.08607 |????  |                                 |
+| EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |With transpose augmentation      |
+| EfficientnetV0 |384       |2     |1X |None|0   |0.07931 |0.088 |With transpose augmentation      |
+| EfficientnetV0 |384       |11    |2X |None|0   |0.08330 |0.093 |With transpose augmentation      |
+| EfficientnetV0 |224       |4     |2X |None|0   |0.08047 |????  |Without transpose augmentation   |
+| EfficientnetV0 |224       |4     |2X |None|0   |0.08267 |????  |With transpose augmentation      |
+| EfficientnetV0 |224       |2     |1X |None|0   |0.08519 |????  |With transpose augmentation      |
+| EfficientnetV0 |224       |11    |2X |None|0   |0.08607 |????  |With transpose augmentation      |
 
 #### Experiment Results
 1. Cropping image gives approx 0.04. 
@@ -29,4 +30,8 @@ transform_train = Compose([
     ShiftScaleRotate(shift_limit=0.1, scale_limit=0.01, 
                          rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
     ToTensor()
-])```
+])
+```
+
+#### Does not work
+1. Downsampling patients with no conditions. 
