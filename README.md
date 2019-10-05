@@ -9,6 +9,7 @@
 
 | Model          |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
+| EfficientnetV0 |256       |6     |3X |None|0   |0.07416 |0.081 |Rolling mean window 3, no transpose, `submission_v2.py` |
 | EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |With transpose augmentation      |
 | EfficientnetV0 |384       |2     |1X |None|0   |0.07931 |0.088 |With transpose augmentation      |
 | EfficientnetV0 |384       |11    |2X |None|0   |0.08330 |0.093 |With transpose augmentation      |
