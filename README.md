@@ -16,6 +16,11 @@
 
 Experiment Results
 1. Mix up improves about 0.02 on EfficientnetV0, but obviously takes longer to converge.
+2. Remove the transpose on augmentation gets a 0.02 improvement. 
 
 Experiments
 1. ...
+
+Best training augmentation so far...
+```
+```
