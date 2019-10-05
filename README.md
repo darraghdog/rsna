@@ -16,7 +16,7 @@
 
 Experiment Results
 1. Cropping image gives approx 0.04. 
-2. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge.
+2. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge. Convergence time on same model about 20 epochs instead of 5 without mixup. 
 3. Remove the transpose on augmentation gets a 0.02 improvement. 
 
 Experiments
