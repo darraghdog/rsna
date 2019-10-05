@@ -20,9 +20,7 @@ Experiment Results
 3. Remove the transpose on augmentation gets a 0.02 improvement. 
 
 Experiments
-1. ...
-
-Best training augmentation so far... [Linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
+1. Best training augmentation so far... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
 ```
 transform_train = Compose([
     HorizontalFlip(p=0.5),
