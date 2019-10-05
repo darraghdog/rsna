@@ -5,6 +5,8 @@
    
 ![Frontpage](https://www.researchgate.net/profile/Sandiya_Bindroo/publication/326537078/figure/fig1/AS:650818105663489@1532178536539/Magnetic-resonance-imaging-MRI-of-the-brain-showing-scattered-punctate-infarcts-in-the.png) . 
 
+#### Results
+
 | Model          |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
 | EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |                                 |
@@ -14,12 +16,12 @@
 | EfficientnetV0 |224       |2     |1X |None|0   |0.08519 |????  |                                 |
 | EfficientnetV0 |224       |11    |2X |None|0   |0.08607 |????  |                                 |
 
-##### Experiment Results
+#### Experiment Results
 1. Cropping image gives approx 0.04. 
 2. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge. Convergence time on same model about 20 epochs instead of 5 without mixup. 
 3. Remove the transpose on augmentation gets a 0.02 improvement. 
 
-##### Experiments
+#### Experiments
 1. Best training augmentation so far... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
 ```
 transform_train = Compose([
