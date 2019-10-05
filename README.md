@@ -22,6 +22,11 @@ Experiment Results
 Experiments
 1. ...
 
-Best training augmentation so far...
+Best training augmentation so far... [Linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
 ```
-```
+transform_train = Compose([
+    HorizontalFlip(p=0.5),
+    ShiftScaleRotate(shift_limit=0.1, scale_limit=0.01, 
+                         rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
+    ToTensor()
+])```
