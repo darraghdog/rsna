@@ -30,3 +30,6 @@ transform_train = Compose([
                          rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
     ToTensor()
 ])```
+
+#### Does not work
+1. Downsampling patients with no conditions. 
