@@ -29,7 +29,8 @@ transform_train = Compose([
     ShiftScaleRotate(shift_limit=0.1, scale_limit=0.01, 
                          rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
     ToTensor()
-])```
+])
+```
 
 #### Does not work
 1. Downsampling patients with no conditions. 
