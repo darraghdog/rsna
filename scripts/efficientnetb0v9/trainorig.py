@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import optparse
 import os, sys
+import ast
 import numpy as np 
 import pandas as pd
 from PIL import Image
@@ -156,7 +157,7 @@ def autocrop(image, threshold=0):
 
 class IntracranialDataset(Dataset):
 
-    def __init__(self, df, path, labels, seqdf=seqdf, transform=None):
+    def __init__(self, df, path, labels, transform=None):
         self.path = path
         self.data = df
         self.seq = seqdf
@@ -172,10 +173,15 @@ class IntracranialDataset(Dataset):
         img_name0 = os.path.join(self.path, imname0 + '.jpg')
         img_name1 = os.path.join(self.path, imname1 + '.jpg')
         img_name2 = os.path.join(self.path, imname2 + '.jpg')
-        #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
-        img = cv2.imread(img_name1)  
-        img[:,:,0] = cv2.imread(img_name0)[:,:,0]
-        img[:,:,2] = cv2.imread(img_name2)[:,:,2] 
+        img = cv2.imread(img_name1) 
+        try:
+            img[:,:,0] = cv2.imread(img_name0)[:,:,0]
+        except:
+            logger.info('1: {} 0: {}'.format(imname1, imname0))
+        try:
+            img[:,:,2] = cv2.imread(img_name2)[:,:,2] 
+        except:
+            logger.info('1: {} 2: {}'.format(imname1, imname2))
         try:
             img = autocrop(img, threshold=0)  
         except:
@@ -218,6 +224,8 @@ train = train.set_index('Image').loc[png].reset_index()
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+trnmdf['PatientID'] += '_trn'
+tstmdf['PatientID'] += '_tst'
 metadf = pd.concat([trnmdf, tstmdf], 0)
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 metadf[poscols] = pd.DataFrame(metadf['ImagePositionPatient'].apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
