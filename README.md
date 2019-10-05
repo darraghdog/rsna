@@ -15,7 +15,7 @@
 | EfficientnetV0 |224       |11    |2X |None|0   |0.08607 |????  |                                 |
 
 Experiment Results
-1. Mix up improves about 0.02 on EfficientnetV0, but obviously takes longer to converge.
+1. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge.
 2. Remove the transpose on augmentation gets a 0.02 improvement. 
 
 Experiments
