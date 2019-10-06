@@ -71,6 +71,7 @@ parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate",
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
 parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
 parser.add_option('-a', '--infer', action="store", dest="infer", help="root directory", default="TRN")
+parser.add_option('-z', '--wtsize', action="store", dest="wtsize", help="model size", default="999")
 
 
 options, args = parser.parse_args()
@@ -97,6 +98,7 @@ for (k,v) in options.__dict__.items():
 
 SEED = int(options.seed)
 SIZE = int(options.size)
+WTSIZE=int(options.wtsize) if int(options.wtsize) != 999 else SIZE
 EPOCHS = int(options.epochs)
 n_epochs = EPOCHS 
 lr=float(options.lr)
@@ -108,6 +110,7 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
+
 
 
 #classes = 1109
@@ -284,34 +287,36 @@ for epoch in range(n_epochs):
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        output_model_file = 'weights/model_{}_epoch{}.bin'.format(SIZE, epoch)
+        output_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
-        model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-        model.classifier = torch.nn.Linear(1280, n_classes)
+        #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+        model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+        model.fc = torch.nn.Linear(2048, n_classes)
         model.to(device)
         for param in model.parameters():
             param.requires_grad = False
-        input_model_file = 'weights/model_{}_epoch{}.bin'.format(SIZE, epoch)
+        input_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
         model.load_state_dict(torch.load(input_model_file))
     model.eval()
-    valls = []
-    for step, batch in enumerate(valloader):
-        if step%1000==0:
-            logger.info('Val step {} of {}'.format(step, len(valloader)))
-        inputs = batch["image"]
-        inputs = inputs.to(device, dtype=torch.float)
-        out = model(inputs)
-        valls.append(torch.sigmoid(out).detach().cpu().numpy())
-    weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
-    yact = valdf[label_cols].values.flatten()
-    ypred = np.concatenate(valls, 0).flatten()
-    valloss = log_loss(yact, ypred, sample_weight = weights)
-    logger.info('Epoch {} logloss {}'.format(epoch, valloss))
-    valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
-    valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
-    valpreddf.to_csv('val_pred_{}_fold{}_epoch{}.csv.gz'.format(SIZE, fold, epoch), compression='gzip', index = False)
+    if INFER != 'NULL':
+        valls = []
+        for step, batch in enumerate(valloader):
+            if step%1000==0:
+                logger.info('Val step {} of {}'.format(step, len(valloader)))
+            inputs = batch["image"]
+            inputs = inputs.to(device, dtype=torch.float)
+            out = model(inputs)
+            valls.append(torch.sigmoid(out).detach().cpu().numpy())
+        weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
+        yact = valdf[label_cols].values.flatten()
+        ypred = np.concatenate(valls, 0).flatten()
+        valloss = log_loss(yact, ypred, sample_weight = weights)
+        logger.info('Epoch {} logloss {}'.format(epoch, valloss))
+        valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
+        valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
+        valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):
@@ -323,4 +328,4 @@ for epoch in range(n_epochs):
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
         test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
-        tstpreddf.to_csv('tst_pred_{}_fold{}_epoch{}.csv.gz'.format(SIZE, fold, epoch), compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)

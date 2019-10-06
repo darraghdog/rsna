@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import optparse
 import os, sys
+import ast
 import numpy as np 
 import pandas as pd
 from PIL import Image
@@ -127,6 +128,16 @@ print('Image path : {}'.format(path_img))
 os.environ["TORCH_HOME"] = os.path.join( path_data, 'mount')
 logger.info(os.system('$TORCH_HOME'))
 
+# Get image sequences
+def bayesMean(df, prior=50, seq = 'Sequence1'):
+    globmean = df['any'].mean()
+    ctvar = df.groupby(seq)['any'].count()
+    meanvar = df.groupby(seq)['any'].mean()
+    bayesmean = ((ctvar*meanvar)+(globmean*50))/(ctvar+prior)
+    bayesmean.name = 'bayesmean'+seq
+    return bayesmean.reset_index()
+
+
 def sampletrndf(df, epoch, RANDSAMPLE):   
     patgrp = df.groupby('PatientID')['any'].sum()
     patgrp = patgrp[patgrp>0].index.tolist()
@@ -178,13 +189,15 @@ class IntracranialDataset(Dataset):
         #img = np.expand_dims(img, -1)
         if self.transform:       
             augmented = self.transform(image=img)
-            img = augmented['image']   
+            img = augmented['image']
+        seq1 = torch.tensor(self.data.loc[idx, 'bayesmeanSequence1'])
+        seq2 = torch.tensor(self.data.loc[idx, 'bayesmeanSequence2']) 
         if self.labels:
             labels = torch.tensor(
                 self.data.loc[idx, label_cols])
-            return {'image': img, 'labels': labels}    
+            return {'image': img, 'Sequence1': seq1,  'Sequence2': seq2,  'labels': labels}    
         else:      
-            return {'image': img}
+            return {'image': img, 'Sequence1': seq1,  'Sequence2': seq2}
 
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -211,7 +224,42 @@ train = train.set_index('Image').loc[png].reset_index()
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
-    
+   
+# Sequence include sequences
+trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
+tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
+
+trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+
+trnmdf = trnmdf.sort_values(['PatientID']+poscols)\
+                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
+                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+
+trnmdf['seq1'] = trnmdf.groupby(['PatientID']).cumcount() + 1
+tstmdf['seq1'] = tstmdf.groupby(['PatientID']).cumcount() + 1
+trnmdf['seq2'] = trnmdf[::-1].groupby(['PatientID']).cumcount() + 1
+tstmdf['seq2'] = tstmdf[::-1].groupby(['PatientID']).cumcount() + 1
+trnseq = trnmdf[['SOPInstanceUID', 'seq1', 'seq2']]
+tstseq = tstmdf[['SOPInstanceUID', 'seq1', 'seq2']]
+trnseq.columns = tstseq.columns = ['Image', 'Sequence1', 'Sequence2']
+trndf = trndf.merge(trnseq, on='Image')
+valdf = valdf.merge(trnseq, on='Image')
+test = test.merge(tstseq, on='Image')
+
+# Add BayesMean
+trndf = trndf.merge(bayesMean(trndf, prior=50, seq = 'Sequence1'), on = 'Sequence1')
+trndf = trndf.merge(bayesMean(trndf, prior=50, seq = 'Sequence2'), on = 'Sequence2')
+valdf = valdf.merge(bayesMean(trndf, prior=50, seq = 'Sequence1'), on = 'Sequence1')
+valdf = valdf.merge(bayesMean(trndf, prior=50, seq = 'Sequence2'), on = 'Sequence2')
+test = test.merge(bayesMean(trndf, prior=50, seq = 'Sequence1'), on = 'Sequence1')
+test = test.merge(bayesMean(trndf, prior=50, seq = 'Sequence2'), on = 'Sequence2')
+
+ 
 # Data loaders
 transform_train = Compose([
     HorizontalFlip(p=0.5),
@@ -237,20 +285,31 @@ from torch.hub import load_state_dict_from_url
 from torchvision.models.resnet import ResNet, Bottleneck
 
 '''
-# Run below, with internet access
-model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
-torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
-'''
-#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-#model.fc = torch.nn.Linear(2048, n_classes)
 torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
 model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-#torch.hub.list('darraghdog/gen-efficientnet-pytorch', force_reload=True)  
-#model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
 model.classifier = torch.nn.Linear(1280, n_classes)
 model.to(device)
+'''
+class NNet(nn.Module):
+    def __init__(self, n_classes=1000):
+        super().__init__()
+        preloaded = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+        self.features = preloaded.features
+        self.classifier = torch.nn.Linear(1280, n_classes)
+        del preloaded
+        
+    def forward(self, x):
+        features = self.features(x)
+        out = F.relu(features, inplace=True)
+        out = F.adaptive_avg_pool2d(out, (1, 1)).view(features.size(0), -1)
+        #logger.info(out.shape)
+        #logger.info(s1.shape)
+        #torch.cat([out, s1, s2], dim=1)
+        out = self.classifier(out)
+        return out
 
-
+model = NNet(n_classes=6)
+model.to(device)
 
 
 criterion = torch.nn.BCEWithLogitsLoss()
@@ -282,8 +341,12 @@ for epoch in range(n_epochs):
                 logger.info('Train step {} of {}'.format(step, len(trnloader)))
             x = batch["image"]
             y = batch["labels"]
+            s1 = batch["Sequence1"]
+            s2 = batch["Sequence2"]
             x = x.to(device, dtype=torch.float)
             y = y.to(device, dtype=torch.float)
+            s1 = s1.to(device, dtype=torch.float)
+            s2 = s2.to(device, dtype=torch.float)
             if MIXUP:
                 # Mixup Start
                 r = np.random.rand(1)
@@ -303,11 +366,15 @@ for epoch in range(n_epochs):
                     del y_a, y_b
                 else:
                     x = torch.autograd.Variable(x, requires_grad=True)
+                    s1 = torch.autograd.Variable(s1)
+                    s2 = torch.autograd.Variable(s2)
                     y = torch.autograd.Variable(y)
                     outputs = model(x)
                     loss = criterion(outputs, y)
             else:
                 x = torch.autograd.Variable(x, requires_grad=True)
+                s1 = torch.autograd.Variable(s1)
+                s2 = torch.autograd.Variable(s2)
                 y = torch.autograd.Variable(y)
                 outputs = model(x)
                 loss = criterion(outputs, y)
