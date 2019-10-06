@@ -9,7 +9,8 @@
 
 | Model          |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
-| ResNeXt-101 32x8d |256       |6     |3X |None|0   |0.06874 |0.074 |Rolling mean window 3, transpose, `submission_v3.py` |
+| ResNeXt-101 32x8d |256       |7     |5X |None|0   |0.06582 |0.070 |Rolling mean window 3, transpose, `submission_v3.py` |
+| ResNeXt-101 32x8d |256       |4     |3X |None|0   |0.06874 |0.074 |Rolling mean window 3, transpose, `submission_v3.py` |
 | EfficientnetV0 |256       |6     |3X |None|0   |0.07416 |0.081 |Rolling mean window 3, no transpose, `submission_v2.py` |
 | EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |With transpose augmentation      |
 | EfficientnetV0 |384       |2     |1X |None|0   |0.07931 |0.088 |With transpose augmentation      |
