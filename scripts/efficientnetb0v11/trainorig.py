@@ -177,12 +177,12 @@ class IntracranialDataset(Dataset):
             # logger.info('Problem : {}'.format(img_name))      
         img = cv2.resize(img,(SIZE,SIZE))
         #img = np.expand_dims(img, -1)
+        seq = torch.tensor(self.data.loc[idx, ['Sequence1', 'Sequence2']])
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
         if self.labels:
             labels = torch.tensor(self.data.loc[idx, label_cols])
-            seq = torch.tensor(self.data.loc[idx, ['Sequence1', 'Sequence2']])
             return {'image': img, 'seq': seq, 'labels': labels}    
         else:      
             return {'image': img, 'seq' : seq}
