@@ -7,15 +7,15 @@
 
 #### Results
 
-| Model          |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
+| Model (`.scripts/` folder) |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
-| ResNeXt-101 32x8d |256       |7     |5X |None|0   |0.06489 |0.070 | Weighted `[0.6, 1.8, 0.6]` rolling mean win3, transpose, `submission_v4.py` |
-| ResNeXt-101 32x8d |256       |7     |5X |None|0   |0.06582 |0.070 |Rolling mean window 3, transpose, `submission_v3.py` |
-| ResNeXt-101 32x8d |256       |4     |3X |None|0   |0.06874 |0.074 |Rolling mean window 3, transpose, `submission_v3.py` |
-| EfficientnetV0 |256       |6     |3X |None|0   |0.07416 |0.081 |Rolling mean window 3, no transpose, `submission_v2.py` |
-| EfficientnetV0 |384       |4     |2X |None|0   |0.07661 |0.085 |With transpose augmentation      |
-| EfficientnetV0 |384       |2     |1X |None|0   |0.07931 |0.088 |With transpose augmentation      |
-| EfficientnetV0 |384       |11    |2X |None|0   |0.08330 |0.093 |With transpose augmentation      |
+| ResNeXt-101 32x8d (v4) |256       |7     |5X |None|0   |0.06489 |0.070 | Weighted `[0.6, 1.8, 0.6]` rolling mean win3, transpose, `submission_v4.py` |
+| ResNeXt-101 32x8d (v4) |256       |7     |5X |None|0   |0.06582 |0.070 |Rolling mean window 3, transpose, `submission_v3.py` |
+| ResNeXt-101 32x8d (v4) |256       |4     |3X |None|0   |0.06874 |0.074 |Rolling mean window 3, transpose, `submission_v3.py` |
+| EfficientnetV0 (v8) |256       |6     |3X |None|0   |0.07416 |0.081 |Rolling mean window 3, no transpose, `submission_v2.py` |
+| EfficientnetV0 (v8) |384       |4     |2X |None|0   |0.07661 |0.085 |With transpose augmentation      |
+| EfficientnetV0 (v8) |384       |2     |1X |None|0   |0.07931 |0.088 |With transpose augmentation      |
+| EfficientnetV0 (v8) |384       |11    |2X |None|0   |0.08330 |0.093 |With transpose augmentation      |
 | EfficientnetV0 |224       |4     |2X |None|0   |0.08047 |????  |Without transpose augmentation   |
 | EfficientnetV0 |224       |4     |2X |None|0   |0.08267 |????  |With transpose augmentation      |
 | EfficientnetV0 |224       |2     |1X |None|0   |0.08519 |????  |With transpose augmentation      |
@@ -28,7 +28,7 @@
 4. Adding logged image sequence, concept to embedding layer, converges faster, no real improvement. 
 
 #### Experiments
-1. Best training augmentation so far... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
+1. Best training augmentation so far (I think it just converges a bit faster, with transpose works a bit faster)... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
 ```
 transform_train = Compose([
     HorizontalFlip(p=0.5),
