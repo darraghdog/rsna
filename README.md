@@ -24,7 +24,8 @@
 #### Experiment Results
 1. Cropping image gives approx 0.04. 
 2. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge. Convergence time on same model about 20 epochs instead of 5 without mixup. 
-3. Remove the transpose on augmentation gets a 0.02 improvement. 
+3. Remove the transpose on augmentation converges faster only, slightly lower score. 
+4. Adding logged image sequence, concept to embedding layer, converges faster, no real improvement. 
 
 #### Experiments
 1. Best training augmentation so far... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
@@ -38,4 +39,4 @@ transform_train = Compose([
 ```
 
 #### Does not work
-1. Downsampling patients with no conditions. 
+1. Downsampling patients with no conditions... Maybe need another go, on public scripts appears to help. 
