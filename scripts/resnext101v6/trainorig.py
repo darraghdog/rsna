@@ -121,12 +121,6 @@ print('Image path : {}'.format(path_img))
 os.environ["TORCH_HOME"] = os.path.join( path_data, 'mount')
 logger.info(os.system('$TORCH_HOME'))
 
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-        
-    def forward(self, x):
-        return x
 
 def autocrop(image, threshold=0):
     """Crops any edges below or equal to threshold
@@ -269,7 +263,7 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    if INFER not in ['TST', 'VAL', 'EMB']:
+    if INFER not in ['TST', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True
         model.train()    
@@ -306,7 +300,7 @@ for epoch in range(n_epochs):
         input_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
         model.load_state_dict(torch.load(input_model_file))
     model.eval()
-    if INFER != 'EMB':
+    if INFER != 'NULL':
         valls = []
         for step, batch in enumerate(valloader):
             if step%1000==0:
@@ -335,26 +329,3 @@ for epoch in range(n_epochs):
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
         test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
         tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
-    if INFER=='EMB':
-        logger.info('Output embeddings epoch {}'.format(epoch)) 
-        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_train, labels=False)
-        valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
-        tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
-        trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        # Extract embedding layer
-        model.fc = Identity()
-        for typ, loader in zip(['trn', 'val', 'tst'], [trnloader, valloader, tstloader]):
-            ls = []
-            for step, batch in enumerate(loader):
-                if step%1000==0:
-                    logger.info('Embedding {} step {} of {}'.format(typ, step, len(loader)))
-                inputs = batch["image"]
-                inputs = inputs.to(device, dtype=torch.float)
-                out = model(inputs)
-                ls.append(out.detach().cpu().numpy())
-            outdf = pd.DataFrame(np.concatenate(ls, 0))     
-            outdf.to_csv('{}_emb_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(typ, SIZE, WTSIZE, fold, epoch), compression='gzip', index = False) 
-            del outdf
-            gc.collect()
