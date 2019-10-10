@@ -208,6 +208,7 @@ png = glob.glob(os.path.join(dir_train_img, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
 png = np.array(png)
 train = train.set_index('Image').loc[png].reset_index()
+trainsm = trainsm.set_index('Image').loc[png].reset_index()
 
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
