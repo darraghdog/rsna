@@ -117,6 +117,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import cv2
+import numpy as np
 n_classes=6
 torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
 model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
@@ -168,12 +169,17 @@ class NNet(nn.Module):
         features = self.features(x)
         seq = self.seqclassifier(s)
         features = torch.cat((features, seq), 1)
-        out = self.classifier(features)
-        return out
+        # out = self.classifier(features)
+        return features
+    
+del model
+model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+model.fc = Identity()
 
 model = NNet(n_classes=6)
 
-out = model(batch, seq)
+out = model(batch)
+out.detach().cpu().numpy()
 
 
 # Sequence include sequences
