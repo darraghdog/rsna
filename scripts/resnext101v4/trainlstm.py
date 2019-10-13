@@ -94,6 +94,13 @@ DROPOUT=float(options.dropout)
 n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
+def makeSub(ypred, imgs):
+    imgls = imgs.repeat(len(label_cols)) 
+    icdls = pd.Series(label_cols*ypred.shape[0])   
+    yidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
+    subdf = pd.DataFrame({'ID' : yvalidx, 'Label': ypred.flatten()})
+    return subdf
+
 class SpatialDropout(nn.Dropout2d):
     def forward(self, x):
         x = x.unsqueeze(2)    # (N, T, 1, K)
@@ -125,14 +132,17 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+        ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
-            return {'emb': patemb, 'labels': labels}    
+            return {'emb': patemb, 'embidx' : ids, 'labels': labels}    
         else:      
-            return {'emb': patemb}
+            return {'emb': patemb, 'embidx' : ids}
 
 def predict(loader):
     valls = []
+    imgls = []
+    imgdf = loader.dataset.data.reset_index().set_index('embidx')[['Image']].copy()
     for step, batch in enumerate(loader):
         inputs = batch["emb"]
         mask = batch['mask'].to(device, dtype=torch.int)
@@ -143,7 +153,12 @@ def predict(loader):
         # reshape for
         logits = logits.view(-1, n_classes)[maskidx]
         valls.append(torch.sigmoid(logits).detach().cpu().numpy())
-    return np.concatenate(valls, 0)
+        # Get the list of images
+        embidx = batch["embidx"].detach().cpu().numpy().astype(np.int32)
+        embidx = embidx.flatten()[embidx.flatten()>-1]
+        images = imgdf.loc[embidx].Image.tolist() 
+        imgls += images
+    return np.concatenate(valls, 0), imgls
 
 
 # Print info about environments
@@ -151,6 +166,7 @@ logger = get_logger('SequenceLSTM', 'INFO') # noqa
 logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 
 # Get image sequences
+#path_data = path='/Users/dhanley2/Documents/Personal/rsna/data'
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
 mdf = pd.concat([trnmdf, tstmdf])
@@ -164,6 +180,7 @@ mdf.rename(columns={'SOPInstanceUID':'Image'}, inplace = True)
 mdf = mdf[['Image', 'seq', 'PatientID']]
 
 # Load Data Frames
+##path_emb ='/Users/dhanley2/Documents/Personal/rsna/emb'
 trndf = pd.read_csv(os.path.join(path_emb, 'trndf.csv.gz'))
 valdf = pd.read_csv(os.path.join(path_emb, 'valdf.csv.gz'))
 tstdf = pd.read_csv(os.path.join(path_emb, 'tstdf.csv.gz'))
@@ -195,6 +212,9 @@ logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
 logger.info('Tst shape {} {}'.format(*tstemb.shape))
 
+for batch in tstloader:
+    batch['embidx'].flatten()[batch['embidx'].flatten()>-1].detach().cpu().numpy().astype(np.int32)
+    break
 
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
@@ -205,8 +225,10 @@ def collatefn(batch):
         labdim= batch[0]['labels'].shape[1]
         
     for b in batch:
+        print(b['embidx'])
         masklen = maxlen-len(b['emb'])
         b['emb'] = np.vstack((np.zeros((masklen, embdim)), b['emb']))
+        b['embidx'] = torch.cat((torch.ones((masklen),dtype=torch.long)*-1, b['embidx']))
         b['mask'] = np.ones((maxlen))
         b['mask'][:masklen] = 0.
         if withlabel:
@@ -215,6 +237,8 @@ def collatefn(batch):
     outbatch = {'emb' : torch.tensor(np.vstack([np.expand_dims(b['emb'], 0) \
                                                 for b in batch])).float()}  
     outbatch['mask'] = torch.tensor(np.vstack([np.expand_dims(b['mask'], 0) \
+                                                for b in batch])).float()
+    outbatch['embidx'] = torch.tensor(np.vstack([np.expand_dims(b['embidx'], 0) \
                                                 for b in batch])).float()
     if withlabel:
         outbatch['labels'] = torch.tensor(np.vstack([np.expand_dims(b['labels'], 0) for b in batch])).float()
@@ -228,8 +252,6 @@ valdataset = IntracranialDataset(valdf, valemb, labels=False)
 tstdataset = IntracranialDataset(tstdf, tstemb, labels=False)
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=0, collate_fn=collatefn)
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=0, collate_fn=collatefn)
-
-
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
@@ -285,35 +307,39 @@ for epoch in range(EPOCHS):
         optimizer.zero_grad()
         with amp.scale_loss(loss, optimizer) as scaled_loss:
             scaled_loss.backward()
-        # loss.backward()
         optimizer.step()
         
-        if step%1000==0:
-            logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
+    logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
                         format(step, len(trnloader), (tr_loss/(1+step))))
     
+    for param in model.parameters():
+        param.requires_grad = False    
     model.eval()
     
-    ypred = predict(valloader)
+    logger.info('Prep val score...')
+    ypred, igmval = predict(valloader)
     ypredls.append(ypred)
-    patseq = pd.DataFrame(valdataset.patients, columns=['PatientID']).reset_index()
-    yact = valdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[label_cols]
-    weights = ([1, 1, 1, 1, 1, 2] * yact.shape[0])
-    yact = yact.values.flatten()
+    yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
+    yvalout = makeSub(yvalpred, imgval)
+    yvalout.to_csv(os.path.join(path_emb, 'val_lstm_{}.csv.gz'.format(embnm)), \
+            index = False, compression = 'gzip')
+    
+    # get Val score
+    weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
+    yact = valloader.dataset.data[label_cols].flatten()
     valloss = log_loss(yact, ypred.flatten(), sample_weight = weights)
-    vallossavg = log_loss(yact, (sum(ypredls[-nbags:])/len(ypredls[-nbags:])).flatten(), sample_weight = weights)
+    vallossavg = log_loss(yact, yvalpred.flatten(), sample_weight = weights)
     logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
     
-    ypredtstls.append(predict(tstloader))
-    patseq = pd.DataFrame(tstdataset.patients, columns=['PatientID']).reset_index()
-    yact = tstdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[['Image']]
-    imgls = yact.Image.repeat(len(label_cols)) 
-    icdls = pd.Series(label_cols*yact.shape[0])    
-    ytstidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
+    logger.info('Prep test sub...')
+    ypred, imgtst = predict(tstloader)
+    ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
-    ytstout = pd.DataFrame({'ID' : ytstidx, 'Label': ytstpred.flatten()})
+    ytstout = makeSub(ytstpred, imgtst)
     ytstout.to_csv(os.path.join(path_emb, 'sub_lstm_{}.csv.gz'.format(embnm)), \
             index = False, compression = 'gzip')
+    
+    logger.info('Output model...')
     output_model_file = 'weights/model_lstm_{}.bin'.format(embnm)
     torch.save(model.state_dict(), output_model_file)
 
