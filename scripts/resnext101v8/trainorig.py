@@ -313,8 +313,6 @@ for epoch in range(n_epochs):
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
         valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
-        if epoch < 6:
-            continue
         tstls = []
         for step, batch in enumerate(tstloader):
             if step%1000==0:
