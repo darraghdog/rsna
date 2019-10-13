@@ -219,7 +219,6 @@ if INFER=='DUMPDF':
     trndf.to_csv('trndf.csv', index=False, compression='gzip')
     valdf.to_csv('valdf.csv', index=False, compression='gzip')
     test.to_csv('tstdf.csv', index=False, compression='gzip')
-    test.to_csv('tstdf.csv', index=False, compression=True)
 
 # Data loaders
 transform_train = Compose([
@@ -343,7 +342,7 @@ for epoch in range(n_epochs):
         tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
     if INFER=='EMB':
         logger.info('Output embeddings epoch {}'.format(epoch)) 
-        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_train, labels=False)
+        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_test, labels=False)
         valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
         tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
         trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
@@ -351,6 +350,8 @@ for epoch in range(n_epochs):
         tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         # Extract embedding layer
         model.fc = Identity()
+        if epoch <2:
+            continue
         for typ, loader in zip(['trn', 'val', 'tst'], [trnloader, valloader, tstloader]):
             ls = []
             for step, batch in enumerate(loader):
@@ -360,7 +361,10 @@ for epoch in range(n_epochs):
                 inputs = inputs.to(device, dtype=torch.float)
                 out = model(inputs)
                 ls.append(out.detach().cpu().numpy())
-            outdf = pd.DataFrame(np.concatenate(ls, 0))     
-            outdf.to_csv('{}_emb_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(typ, SIZE, WTSIZE, fold, epoch), compression='gzip', index = False) 
-            del outdf
+            outemb = np.concatenate(ls, 0)
+            np.savez_compressed('emb_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), outemb)
+            dumpobj('loader_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), loader)
+            #outdf = pd.DataFrame(np.concatenate(ls, 0))     
+            #outdf.to_csv('{}_emb_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(typ, SIZE, WTSIZE, fold, epoch), compression='gzip', index = False) 
+            #del outdf
             gc.collect()
