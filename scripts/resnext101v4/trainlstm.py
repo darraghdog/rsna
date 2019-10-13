@@ -287,8 +287,8 @@ for epoch in range(EPOCHS):
         param.requires_grad = True
     model.train()  
     for step, batch in enumerate(trnloader):
-        #if step>100:
-        #    break
+        if step>100:
+            break
         y = batch['labels'].to(device, dtype=torch.float)
         mask = batch['mask'].to(device, dtype=torch.int)
         x = batch['emb'].to(device, dtype=torch.float)
@@ -326,10 +326,11 @@ for epoch in range(EPOCHS):
     
     # get Val score
     weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
-    yact = valloader.dataset.data[label_cols].values.flatten()
-    valloss = log_loss(yact, ypred.flatten(), sample_weight = weights)
-    vallossavg = log_loss(yact, yvalpred.flatten(), sample_weight = weights)
-    logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
+    yact = valloader.dataset.data[label_cols].values#.flatten()
+    yact = makeSub(yact, valloader.dataset.data['Image'].tolist())
+    yact = yact.set_index('ID').loc[yvalout.ID].reset_index()
+    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values, sample_weight = weights)
+    logger.info('Epoch {} bagged val logloss {:.5f}'.format(epoch, vallossavg))
     
     logger.info('Prep test sub...')
     ypred, imgtst = predict(tstloader)
