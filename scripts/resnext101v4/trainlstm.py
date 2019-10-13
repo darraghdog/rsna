@@ -95,10 +95,10 @@ n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
 def makeSub(ypred, imgs):
-    imgls = imgs.repeat(len(label_cols)) 
+    imgls = np.array(imgs).repeat(len(label_cols)) 
     icdls = pd.Series(label_cols*ypred.shape[0])   
     yidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
-    subdf = pd.DataFrame({'ID' : yvalidx, 'Label': ypred.flatten()})
+    subdf = pd.DataFrame({'ID' : yidx, 'Label': ypred.flatten()})
     return subdf
 
 class SpatialDropout(nn.Dropout2d):
@@ -132,11 +132,15 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+        ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
-            return {'emb': patemb, 'labels': labels}    
+            return {'emb': patemb, 'embidx' : ids, 'labels': labels}    
         else:      
-            return {'emb': patemb}
+            return {'emb': patemb, 'embidx' : ids}
+
+
+
 
 def predict(loader):
     valls = []
@@ -209,7 +213,6 @@ logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
 logger.info('Tst shape {} {}'.format(*tstemb.shape))
 
-
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
     maxlen = max([l['emb'].shape[0] for l in batch])
@@ -221,6 +224,7 @@ def collatefn(batch):
     for b in batch:
         masklen = maxlen-len(b['emb'])
         b['emb'] = np.vstack((np.zeros((masklen, embdim)), b['emb']))
+        b['embidx'] = torch.cat((torch.ones((masklen),dtype=torch.long)*-1, b['embidx']))
         b['mask'] = np.ones((maxlen))
         b['mask'][:masklen] = 0.
         if withlabel:
@@ -229,6 +233,8 @@ def collatefn(batch):
     outbatch = {'emb' : torch.tensor(np.vstack([np.expand_dims(b['emb'], 0) \
                                                 for b in batch])).float()}  
     outbatch['mask'] = torch.tensor(np.vstack([np.expand_dims(b['mask'], 0) \
+                                                for b in batch])).float()
+    outbatch['embidx'] = torch.tensor(np.vstack([np.expand_dims(b['embidx'], 0) \
                                                 for b in batch])).float()
     if withlabel:
         outbatch['labels'] = torch.tensor(np.vstack([np.expand_dims(b['labels'], 0) for b in batch])).float()
@@ -281,6 +287,8 @@ for epoch in range(EPOCHS):
         param.requires_grad = True
     model.train()  
     for step, batch in enumerate(trnloader):
+        #if step>100:
+        #    break
         y = batch['labels'].to(device, dtype=torch.float)
         mask = batch['mask'].to(device, dtype=torch.int)
         x = batch['emb'].to(device, dtype=torch.float)
@@ -309,7 +317,7 @@ for epoch in range(EPOCHS):
     model.eval()
     
     logger.info('Prep val score...')
-    ypred, igmval = predict(valloader)
+    ypred, imgval = predict(valloader)
     ypredls.append(ypred)
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
@@ -318,7 +326,7 @@ for epoch in range(EPOCHS):
     
     # get Val score
     weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
-    yact = valloader.dataset.data[label_cols].flatten()
+    yact = valloader.dataset.data[label_cols].values.flatten()
     valloss = log_loss(yact, ypred.flatten(), sample_weight = weights)
     vallossavg = log_loss(yact, yvalpred.flatten(), sample_weight = weights)
     logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
