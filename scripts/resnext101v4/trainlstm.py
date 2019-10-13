@@ -94,6 +94,13 @@ DROPOUT=float(options.dropout)
 n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
+def makeSub(ypred, imgs):
+    imgls = imgs.repeat(len(label_cols)) 
+    icdls = pd.Series(label_cols*ypred.shape[0])   
+    yidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
+    subdf = pd.DataFrame({'ID' : yvalidx, 'Label': ypred.flatten()})
+    return subdf
+
 class SpatialDropout(nn.Dropout2d):
     def forward(self, x):
         x = x.unsqueeze(2)    # (N, T, 1, K)
@@ -133,6 +140,8 @@ class IntracranialDataset(Dataset):
 
 def predict(loader):
     valls = []
+    imgls = []
+    imgdf = loader.dataset.data.reset_index().set_index('embidx')[['Image']].copy()
     for step, batch in enumerate(loader):
         inputs = batch["emb"]
         mask = batch['mask'].to(device, dtype=torch.int)
@@ -143,7 +152,12 @@ def predict(loader):
         # reshape for
         logits = logits.view(-1, n_classes)[maskidx]
         valls.append(torch.sigmoid(logits).detach().cpu().numpy())
-    return np.concatenate(valls, 0)
+        # Get the list of images
+        embidx = batch["embidx"].detach().cpu().numpy().astype(np.int32)
+        embidx = embidx.flatten()[embidx.flatten()>-1]
+        images = imgdf.loc[embidx].Image.tolist() 
+        imgls += images
+    return np.concatenate(valls, 0), imgls
 
 
 # Print info about environments
@@ -294,30 +308,30 @@ for epoch in range(EPOCHS):
     
     model.eval()
     
-    ypred = predict(valloader)
+    logger.info('Prep val score...')
+    ypred, igmval = predict(valloader)
     ypredls.append(ypred)
-    dumpobj('{}_ypredvallsval.pk'.format(embnm), ypredls)
-    dumpobj('{}_valdataset.patients.pk'.format(embnm),  valdataset.patients)
-    patseq = pd.DataFrame(valdataset.patients, columns=['PatientID']).reset_index()
-    yact = valdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[label_cols]
-    weights = ([1, 1, 1, 1, 1, 2] * yact.shape[0])
-    yact = yact.values.flatten()
+    yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
+    yvalout = makeSub(yvalpred, imgval)
+    yvalout.to_csv(os.path.join(path_emb, 'lstm_val_{}.csv.gz'.format(embnm)), \
+            index = False, compression = 'gzip')
+    
+    # get Val score
+    weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
+    yact = valloader.dataset.data[label_cols].flatten()
     valloss = log_loss(yact, ypred.flatten(), sample_weight = weights)
-    vallossavg = log_loss(yact, (sum(ypredls[-nbags:])/len(ypredls[-nbags:])).flatten(), sample_weight = weights)
+    vallossavg = log_loss(yact, yvalpred.flatten(), sample_weight = weights)
     logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
     
-    ypredtstls.append(predict(tstloader))
-    dumpobj('{}_ypredtstlsval.pk'.format(embnm), ypredtstls)
-    dumpobj('{}_tstdataset.patients.pk'.format(embnm), tstdataset.patients)
-    patseq = pd.DataFrame(tstdataset.patients, columns=['PatientID']).reset_index()
-    yact = tstdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[['Image']]
-    imgls = yact.Image.repeat(len(label_cols)) 
-    icdls = pd.Series(label_cols*yact.shape[0])    
-    ytstidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
+    logger.info('Prep test sub...')
+    ypred, imgtst = predict(tstloader)
+    ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
-    ytstout = pd.DataFrame({'ID' : ytstidx, 'Label': ytstpred.flatten()})
-    ytstout.to_csv(os.path.join(path_emb, 'sub_lstm_{}.csv.gz'.format(embnm)), \
+    ytstout = makeSub(ytstpred, imgtst)
+    ytstout.to_csv(os.path.join(path_emb, 'lstm_sub_{}.csv.gz'.format(embnm)), \
             index = False, compression = 'gzip')
+    
+    logger.info('Output model...')
     output_model_file = 'weights/model_lstm_{}.bin'.format(embnm)
     torch.save(model.state_dict(), output_model_file)
 
