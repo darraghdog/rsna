@@ -296,6 +296,8 @@ for epoch in range(EPOCHS):
     
     ypred = predict(valloader)
     ypredls.append(ypred)
+    dumpobj('{}_ypredvallsval.pk'.format(embnm), ypredls)
+    dumpobj('{}_valdataset.patients.pk'.format(embnm),  valdataset.patients)
     patseq = pd.DataFrame(valdataset.patients, columns=['PatientID']).reset_index()
     yact = valdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[label_cols]
     weights = ([1, 1, 1, 1, 1, 2] * yact.shape[0])
@@ -305,6 +307,8 @@ for epoch in range(EPOCHS):
     logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
     
     ypredtstls.append(predict(tstloader))
+    dumpobj('{}_ypredtstlsval.pk'.format(embnm), ypredtstls)
+    dumpobj('{}_tstdataset.patients.pk'.format(embnm), tstdataset.patients)
     patseq = pd.DataFrame(tstdataset.patients, columns=['PatientID']).reset_index()
     yact = tstdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[['Image']]
     imgls = yact.Image.repeat(len(label_cols)) 
