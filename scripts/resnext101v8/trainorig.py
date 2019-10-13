@@ -92,6 +92,7 @@ n_gpu = torch.cuda.device_count()
 logger.info('Cuda n_gpus : {}'.format(n_gpu ))
 
 
+
 logger.info('Load params : time {}'.format(datetime.datetime.now().time()))
 for (k,v) in options.__dict__.items():
     logger.info('{}{}'.format(k.ljust(20), v))
@@ -181,14 +182,6 @@ if n_gpu > 0:
     torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
 # Data loaders
-transform_train = Compose([
-    ShiftScaleRotate(),
-    ToTensor()
-])
-
-transform_test= Compose([
-    ToTensor()
-])
     
 logger.info('Load Dataframes')
 dir_train_img = os.path.join(path_data, 'stage_1_train_images_jpg')
@@ -245,8 +238,7 @@ model.to(device)
 model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
 model.fc = torch.nn.Linear(2048, n_classes)
 model.to(device)
-
-
+#model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 
 criterion = torch.nn.BCEWithLogitsLoss()
 def criterion(data, targets, criterion = torch.nn.BCEWithLogitsLoss()):
@@ -259,6 +251,8 @@ plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
 
 model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+
+model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
@@ -287,7 +281,7 @@ for epoch in range(n_epochs):
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        output_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
+        output_model_file = 'weights/model_fold{}_epoch{}.bin'.format(fold, epoch)
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
@@ -295,12 +289,13 @@ for epoch in range(n_epochs):
         model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
         model.fc = torch.nn.Linear(2048, n_classes)
         model.to(device)
+        model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
         for param in model.parameters():
             param.requires_grad = False
-        input_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
+        input_model_file = 'weights/model_fold{}_epoch{}.bin'.format(fold, epoch)
         model.load_state_dict(torch.load(input_model_file))
     model.eval()
-    if INFER not in ['NULL', 'TST']:
+    if (INFER not in ['NULL', 'TST']) and (fold!=5):
         valls = []
         for step, batch in enumerate(valloader):
             if step%1000==0:
@@ -318,6 +313,8 @@ for epoch in range(n_epochs):
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
         valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
+        if epoch < 6:
+            continue
         tstls = []
         for step, batch in enumerate(tstloader):
             if step%1000==0:

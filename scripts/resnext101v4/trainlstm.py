@@ -6,14 +6,14 @@ Created on Wed Oct  2 20:53:27 2019
 @author: dhanley2
 """
 import numpy as np
-import csv, gzip, os
+import csv, gzip, os, sys
 import math
 import torch
 from torch import nn
 import torch.optim as optim
 import logging
 import datetime
-
+import optparse
 import pandas as pd
 import os
 from sklearn.metrics import log_loss
@@ -22,11 +22,16 @@ from torch.utils.data import Dataset
 from sklearn.metrics import log_loss
 from torch.utils.data import DataLoader
 
+from apex.parallel import DistributedDataParallel as DDP
+from apex.fp16_utils import *
+from apex import amp, optimizers
+from apex.multi_tensor_apply import multi_tensor_applier
+
 # Print info about environments
 parser = optparse.OptionParser()
 parser.add_option('-s', '--seed', action="store", dest="seed", help="model seed", default="1234")
 parser.add_option('-o', '--fold', action="store", dest="fold", help="Fold for split", default="0")
-parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of bags for averaging", default="0")
+parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of bags for averaging", default="4")
 parser.add_option('-e', '--epochs', action="store", dest="epochs", help="epochs", default="10")
 parser.add_option('-b', '--batchsize', action="store", dest="batchsize", help="batch size", default="4")
 parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/rsna/")
@@ -37,11 +42,9 @@ parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate",
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
 parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
 parser.add_option('-a', '--globalepoch', action="store", dest="globalepoch", help="root directory", default="3")
-parser.add_option('-d', '--loadcsv', action="store", dest="loadcsv", help="Convert csv embeddings to numpy", default="F")
+parser.add_option('-n', '--loadcsv', action="store", dest="loadcsv", help="Convert csv embeddings to numpy", default="F")
 parser.add_option('-j', '--lstm_units', action="store", dest="lstm_units", help="Lstm units", default="128")
 parser.add_option('-d', '--dropout', action="store", dest="dropout", help="LSTM input spatial dropout", default="0.3")
-
-
 
 options, args = parser.parse_args()
 package_dir = options.rootpath
@@ -86,6 +89,7 @@ WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 LOADCSV= options.loadcsv=='T'
 LSTM_UNITS=int(options.lstm_units)
+nbags=int(options.nbags)
 DROPOUT=float(options.dropout)
 n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
@@ -177,17 +181,19 @@ if LOADCSV:
     logger.info('Convert to npy..')
     coltypes = dict((i, np.float32) for i in range(2048))
     trnemb = pd.read_csv(os.path.join(path_emb, 'trn_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    valemb = pd.read_csv(os.path.join(path_emb, 'trn_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    tstemb = pd.read_csv(os.path.join(path_emb, 'trn_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    np.save(os.path.join(path_emb, 'trn_{}.npy'.format(embnm)), trnemb)
-    np.save(os.path.join(path_emb, 'val_{}.npy'.format(embnm)), valemb)
-    np.save(os.path.join(path_emb, 'tst_{}.npy'.format(embnm)), tstemb)
+    valemb = pd.read_csv(os.path.join(path_emb, 'val_{}.csv.gz'.format(embnm)), dtype = coltypes).values
+    tstemb = pd.read_csv(os.path.join(path_emb, 'tst_{}.csv.gz'.format(embnm)), dtype = coltypes).values
+    np.savez_compressed(os.path.join(path_emb, 'trn_{}'.format(embnm)), trnemb)
+    np.savez_compressed(os.path.join(path_emb, 'val_{}'.format(embnm)), valemb)
+    np.savez_compressed(os.path.join(path_emb, 'tst_{}'.format(embnm)), tstemb)
 
 logger.info('Load npy..')
-trnemb = np.load(os.path.join(path_emb, 'trn_{}.npy'.format(embnm)))
-valemb = np.load(os.path.join(path_emb, 'val_{}.npy'.format(embnm)))
-tstemb = np.load(os.path.join(path_emb, 'tst_{}.npy'.format(embnm)))
-
+valemb = np.load(os.path.join(path_emb, 'val_{}.npz'.format(embnm)))['arr_0']
+tstemb = np.load(os.path.join(path_emb, 'tst_{}.npz'.format(embnm)))['arr_0']
+trnemb = np.load(os.path.join(path_emb, 'trn_{}.npz'.format(embnm)))['arr_0']
+logger.info('Trn shape {} {}'.format(*trnemb.shape))
+logger.info('Val shape {} {}'.format(*valemb.shape))
+logger.info('Tst shape {} {}'.format(*tstemb.shape))
 
 
 # a simple custom collate function, just to show the idea
@@ -243,7 +249,6 @@ class NeuralNet(nn.Module):
         
         return output
     
-device = 'cuda'  
 model =     NeuralNet(LSTM_UNITS=LSTM_UNITS, DO = DROPOUT)
 model = model.to(device)
 plist = [{'params': model.parameters(), 'lr': lr}]
@@ -251,6 +256,7 @@ optimizer = optim.Adam(plist, lr=lr)
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 # baseline rmean : 0.06893
 # 2019-10-12 18:25:38,787 - SequenceLSTM - INFO - Epoch 0 logloss 0.06586674622676458
+model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 
 ypredls = []
 ypredtstls = []
@@ -261,7 +267,6 @@ for epoch in range(EPOCHS):
         param.requires_grad = True
     model.train()  
     for step, batch in enumerate(trnloader):
-        
         y = batch['labels'].to(device, dtype=torch.float)
         mask = batch['mask'].to(device, dtype=torch.int)
         x = batch['emb'].to(device, dtype=torch.float)
@@ -278,7 +283,9 @@ for epoch in range(EPOCHS):
         
         tr_loss += loss.item()
         optimizer.zero_grad()
-        loss.backward()
+        with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+        # loss.backward()
         optimizer.step()
         
         if step%1000==0:
@@ -292,14 +299,14 @@ for epoch in range(EPOCHS):
     patseq = pd.DataFrame(valdataset.patients, columns=['PatientID']).reset_index()
     yact = valdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[label_cols]
     weights = ([1, 1, 1, 1, 1, 2] * yact.shape[0])
-    yact = valdfchk.values.flatten()
+    yact = yact.values.flatten()
     valloss = log_loss(yact, ypred.flatten(), sample_weight = weights)
     vallossavg = log_loss(yact, (sum(ypredls[-nbags:])/len(ypredls[-nbags:])).flatten(), sample_weight = weights)
     logger.info('Epoch {} val logloss {:.5f} bagged val logloss {:.5f} \n'.format(epoch, valloss, vallossavg))
     
     ypredtstls.append(predict(tstloader))
     patseq = pd.DataFrame(tstdataset.patients, columns=['PatientID']).reset_index()
-    yact = tstdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])['Image']
+    yact = tstdf.merge(patseq, on='PatientID').sort_values(['index', 'seq'])[['Image']]
     imgls = yact.Image.repeat(len(label_cols)) 
     icdls = pd.Series(label_cols*yact.shape[0])    
     ytstidx = ['{}_{}'.format(i,j) for i,j in zip(imgls, icdls)]
@@ -309,6 +316,4 @@ for epoch in range(EPOCHS):
             index = False, compression = 'gzip')
     output_model_file = 'weights/model_lstm_{}.bin'.format(embnm)
     torch.save(model.state_dict(), output_model_file)
-
-
 

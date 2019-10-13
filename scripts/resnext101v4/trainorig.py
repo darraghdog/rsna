@@ -214,7 +214,13 @@ train = train.set_index('Image').loc[png].reset_index()
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
-    
+
+if INFER=='DUMPDF':
+    trndf.to_csv('trndf.csv', index=False, compression='gzip')
+    valdf.to_csv('valdf.csv', index=False, compression='gzip')
+    test.to_csv('tstdf.csv', index=False, compression='gzip')
+    test.to_csv('tstdf.csv', index=False, compression=True)
+
 # Data loaders
 transform_train = Compose([
     #ShiftScaleRotate(),
