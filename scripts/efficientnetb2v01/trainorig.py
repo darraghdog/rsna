@@ -71,7 +71,10 @@ parser.add_option('-l', '--lr', action="store", dest="lr", help="learning rate",
 parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root directory", default="Recursion-pytorch")
 parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
 parser.add_option('-a', '--infer', action="store", dest="infer", help="root directory", default="TRN")
-parser.add_option('-z', '--wtsize', action="store", dest="wtsize", help="model size", default="999")
+parser.add_option('-d', '--beta', action="store", dest="beta", help="beta", default="1.0")
+parser.add_option('-j', '--mixup', action="store", dest="mixup", help="Mixup", default="FALSE")
+parser.add_option('-k', '--randsample', action="store", dest="randsample", help="Random Sample Fraction of patients with no diagnosis", default="1.0")
+
 
 
 options, args = parser.parse_args()
@@ -98,7 +101,6 @@ for (k,v) in options.__dict__.items():
 
 SEED = int(options.seed)
 SIZE = int(options.size)
-WTSIZE=int(options.wtsize) if int(options.wtsize) != 999 else SIZE
 EPOCHS = int(options.epochs)
 n_epochs = EPOCHS 
 lr=float(options.lr)
@@ -110,6 +112,10 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
+beta=float(options.beta)
+MIXUP=True if options.mixup=='TRUE' else False
+RANDSAMPLE=float(options.randsample)
+
 
 
 
@@ -121,12 +127,12 @@ print('Image path : {}'.format(path_img))
 os.environ["TORCH_HOME"] = os.path.join( path_data, 'mount')
 logger.info(os.system('$TORCH_HOME'))
 
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-        
-    def forward(self, x):
-        return x
+def sampletrndf(df, epoch, RANDSAMPLE):   
+    patgrp = df.groupby('PatientID')['any'].sum()
+    patgrp = patgrp[patgrp>0].index.tolist()
+    iix = df.PatientID.isin(patgrp)
+    return pd.concat([df[~iix].sample(frac=RANDSAMPLE, random_state=epoch), \
+                      df[iix]], 0).reset_index(drop = True)
 
 def autocrop(image, threshold=0):
     """Crops any edges below or equal to threshold
@@ -186,16 +192,7 @@ torch.cuda.manual_seed(SEED)
 if n_gpu > 0:
     torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
-# Data loaders
-transform_train = Compose([
-    ShiftScaleRotate(),
-    ToTensor()
-])
 
-transform_test= Compose([
-    ToTensor()
-])
-    
 logger.info('Load Dataframes')
 dir_train_img = os.path.join(path_data, 'stage_1_train_images_jpg')
 dir_test_img = os.path.join(path_data, 'stage_1_test_images_jpg')
@@ -217,12 +214,9 @@ trndf = train[train['fold']!=fold].reset_index(drop=True)
     
 # Data loaders
 transform_train = Compose([
-    #ShiftScaleRotate(),
-    #CenterCrop(height = SIZE//10, width = SIZE//10, p=0.3),
     HorizontalFlip(p=0.5),
-    ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
-                         rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
-    Transpose(p=0.5),
+    ShiftScaleRotate(shift_limit=0.1, scale_limit=0.01, 
+                         rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
     ToTensor()
 ])
 
@@ -243,14 +237,19 @@ from torch.hub import load_state_dict_from_url
 from torchvision.models.resnet import ResNet, Bottleneck
 
 '''
+# Run below, with internet access
+model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
+torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
+'''
+#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+#model.fc = torch.nn.Linear(2048, n_classes)
 torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
-model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
+model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b2', pretrained=True)
+#torch.hub.list('darraghdog/gen-efficientnet-pytorch', force_reload=True)  
+#model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b2', pretrained=True)
 model.classifier = torch.nn.Linear(1280, n_classes)
 model.to(device)
-'''
-model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-model.fc = torch.nn.Linear(2048, n_classes)
-model.to(device)
+
 
 
 
@@ -269,60 +268,88 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    if INFER not in ['TST', 'EMB', 'VAL']:
+    if INFER not in ['TST', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True
         model.train()    
         tr_loss = 0
+        if RANDSAMPLE<1.0:
+            trndataset = IntracranialDataset(sampletrndf(trndf, epoch, RANDSAMPLE), \
+                                             path=dir_train_img, transform=transform_train, labels=True)
+            trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)            
         for step, batch in enumerate(trnloader):
             if step%1000==0:
                 logger.info('Train step {} of {}'.format(step, len(trnloader)))
-            inputs = batch["image"]
-            labels = batch["labels"]
-            inputs = inputs.to(device, dtype=torch.float)
-            labels = labels.to(device, dtype=torch.float)
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
+            x = batch["image"]
+            y = batch["labels"]
+            x = x.to(device, dtype=torch.float)
+            y = y.to(device, dtype=torch.float)
+            if MIXUP:
+                # Mixup Start
+                r = np.random.rand(1)
+                if beta > 0 and r < mixup_prob_warmup:
+                    # generate mixed sample
+                    lam = np.random.beta(beta, beta)
+                    rand_index = torch.randperm(x.size()[0]).cuda()
+                    y_a = y
+                    y_b = y[rand_index]
+                    bbx1, bby1, bbx2, bby2 = rand_bbox(x.size(), lam)
+                    x = lam * x + (1 - lam) * x[rand_index]
+                    x = torch.autograd.Variable(x, requires_grad=True)
+                    y_a = torch.autograd.Variable(y_a)
+                    y_b = torch.autograd.Variable(y_b)
+                    outputs = model(x)
+                    loss = criterion(outputs, y_a) * lam + criterion(outputs, y_b) * (1. - lam)
+                    del y_a, y_b
+                else:
+                    x = torch.autograd.Variable(x, requires_grad=True)
+                    y = torch.autograd.Variable(y)
+                    outputs = model(x)
+                    loss = criterion(outputs, y)
+            else:
+                x = torch.autograd.Variable(x, requires_grad=True)
+                y = torch.autograd.Variable(y)
+                outputs = model(x)
+                loss = criterion(outputs, y)
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
             tr_loss += loss.item()
             optimizer.step()
             optimizer.zero_grad()
-            del inputs, labels, outputs
+            del x, y, outputs
         epoch_loss = tr_loss / len(trnloader)
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        output_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
+        output_model_file = 'weights/model_{}_epoch{}.bin'.format(SIZE, epoch)
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
-        #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-        model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-        model.fc = torch.nn.Linear(2048, n_classes)
+        model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b2', pretrained=True)
+        #model = torch.hub.load('darraghdog/gen-efficientnet-pytorch', 'efficientnet_b2', pretrained=True)
+        model.classifier = torch.nn.Linear(1280, n_classes)
         model.to(device)
         for param in model.parameters():
             param.requires_grad = False
-        input_model_file = 'weights/model_{}_epoch{}.bin'.format(WTSIZE, epoch)
+        input_model_file = 'weights/model_{}_epoch{}.bin'.format(SIZE, epoch)
         model.load_state_dict(torch.load(input_model_file))
     model.eval()
-    if INFER not in ['EMB', 'NULL', 'TST']:
-        valls = []
-        for step, batch in enumerate(valloader):
-            if step%1000==0:
-                logger.info('Val step {} of {}'.format(step, len(valloader)))
-            inputs = batch["image"]
-            inputs = inputs.to(device, dtype=torch.float)
-            out = model(inputs)
-            valls.append(torch.sigmoid(out).detach().cpu().numpy())
-        weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
-        yact = valdf[label_cols].values.flatten()
-        ypred = np.concatenate(valls, 0).flatten()
-        valloss = log_loss(yact, ypred, sample_weight = weights)
-        logger.info('Epoch {} logloss {}'.format(epoch, valloss))
-        valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
-        valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
-        valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
+    valls = []
+    for step, batch in enumerate(valloader):
+        if step%1000==0:
+            logger.info('Val step {} of {}'.format(step, len(valloader)))
+        inputs = batch["image"]
+        inputs = inputs.to(device, dtype=torch.float)
+        out = model(inputs)
+        valls.append(torch.sigmoid(out).detach().cpu().numpy())
+    weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
+    yact = valdf[label_cols].values.flatten()
+    ypred = np.concatenate(valls, 0).flatten()
+    valloss = log_loss(yact, ypred, sample_weight = weights)
+    logger.info('Epoch {} logloss {}'.format(epoch, valloss))
+    valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
+    valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
+    valpreddf.to_csv('val_pred_{}_fold{}_epoch{}_samp{}.csv.gz'.format(SIZE, fold, epoch, RANDSAMPLE), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):
@@ -334,29 +361,4 @@ for epoch in range(n_epochs):
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
         test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
-        tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
-    if INFER=='EMB':
-        logger.info('Output embeddings epoch {}'.format(epoch)) 
-        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_test, labels=False)
-        valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
-        tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
-        trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        # Extract embedding layer
-        model.fc = Identity()
-        if epoch <2:
-            continue
-        for typ, loader in zip(['trn', 'val', 'tst'], [trnloader, valloader, tstloader]):
-            ls = []
-            for step, batch in enumerate(loader):
-                if step%1000==0:
-                    logger.info('Embedding {} step {} of {}'.format(typ, step, len(loader)))
-                inputs = batch["image"]
-                inputs = inputs.to(device, dtype=torch.float)
-                out = model(inputs)
-                ls.append(out.detach().cpu().numpy())
-            outemb = np.concatenate(ls, 0)
-            np.savez_compressed('emb_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), outemb)
-            dumpobj('loader_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), loader)
-            gc.collect()
+        tstpreddf.to_csv('tst_pred_{}_fold{}_epoch{}_samp{}.csv.gz'.format(SIZE, fold, epoch, RANDSAMPLE), compression='gzip', index = False)
