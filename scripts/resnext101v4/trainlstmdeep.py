@@ -11,6 +11,8 @@ import math
 import torch
 from torch import nn
 import torch.optim as optim
+from torch.nn import functional as F
+
 import logging
 import datetime
 import optparse
@@ -270,12 +272,12 @@ def collatefn(batch):
 
 logger.info('Create loaders...')
 trndataset = IntracranialDataset(trndf, trnemb, labels=True)
-trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=0, collate_fn=collatefn)
+trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=8, collate_fn=collatefn)
 
 valdataset = IntracranialDataset(valdf, valemb, labels=False)
 tstdataset = IntracranialDataset(tstdf, tstemb, labels=False)
-tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=0, collate_fn=collatefn)
-valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=0, collate_fn=collatefn)
+tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
+valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
 
 
 
@@ -287,13 +289,26 @@ class NeuralNet(nn.Module):
         self.embedding_dropout = SpatialDropout(DO)
         
         self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
+        self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
+
+        self.linear1 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
+        self.linear2 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
+
         self.linear = nn.Linear(LSTM_UNITS*2, n_classes)
 
     def forward(self, x, lengths=None):
         h_embedding = x
         
         h_lstm1, _ = self.lstm1(h_embedding)
-        output = self.linear(h_lstm1)
+        h_lstm2, _ = self.lstm2(h_lstm1)
+        
+        h_conc_linear1  = F.relu(self.linear1(h_lstm1))
+        h_conc_linear2  = F.relu(self.linear2(h_lstm2))
+        
+        hidden = h_lstm1 + h_lstm2 + h_conc_linear1 + h_conc_linear2
+
+        output = self.linear(hidden)
+        #output = self.linear(h_lstm1)
         
         return output
     
@@ -349,7 +364,7 @@ for epoch in range(EPOCHS):
     ypredls.append(ypred)
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
-    yvalout.to_csv(os.path.join(path_emb, 'lstm_val_{}.csv.gz'.format(embnm)), \
+    yvalout.to_csv(os.path.join(path_emb, 'lstmdeep_val_{}.csv.gz'.format(embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -365,10 +380,10 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    ytstout.to_csv(os.path.join(path_emb, 'lstm_sub_{}.csv.gz'.format(embnm)), \
+    ytstout.to_csv(os.path.join(path_emb, 'lstmdeep_sub_{}.csv.gz'.format(embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstm_{}.bin'.format(embnm)
+    output_model_file = 'weights/model_lstmdeep_{}.bin'.format(embnm)
     torch.save(model.state_dict(), output_model_file)
 
