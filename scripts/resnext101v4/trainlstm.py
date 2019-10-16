@@ -171,6 +171,7 @@ logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+'''
 mdf = pd.concat([trnmdf, tstmdf])
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 mdf[poscols] = pd.DataFrame(mdf['ImagePositionPatient']\
@@ -180,21 +181,46 @@ mdf = mdf.sort_values(['PatientID']+poscols)\
 mdf['seq'] = mdf.groupby(['PatientID']).cumcount() + 1
 mdf.rename(columns={'SOPInstanceUID':'Image'}, inplace = True)
 mdf = mdf[['Image', 'seq', 'PatientID']]
+'''
+poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
+trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+trnmdf = trnmdf.sort_values(['PatientID']+poscols)\
+                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
+                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+trnmdf['seq'] = (trnmdf.groupby(['PatientID']).cumcount() + 1)
+tstmdf['seq'] = (tstmdf.groupby(['PatientID']).cumcount() + 1)
+keepcols = ['PatientID', 'SOPInstanceUID', 'seq']
+trnmdf = trnmdf[keepcols]
+tstmdf = tstmdf[keepcols]
+trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']
+
 
 # Load Data Frames
+
+trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
+valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
+tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
+
+'''
 trndf = pd.read_csv(os.path.join(path_emb, 'trndf.csv.gz'))
 valdf = pd.read_csv(os.path.join(path_emb, 'valdf.csv.gz'))
 tstdf = pd.read_csv(os.path.join(path_emb, 'tstdf.csv.gz'))
+'''
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
-trndf = trndf.merge(mdf.drop('PatientID', 1), on = 'Image')
-valdf = valdf.merge(mdf.drop('PatientID', 1), on = 'Image')
-tstdf = tstdf.merge(mdf, on = 'Image')
+trndf = trndf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
+valdf = valdf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
+tstdf = tstdf.merge(tstmdf, on = 'Image')
 
 # Load embeddings
 
 embnm='emb_sz256_wt256_fold{}_epoch{}'.format(fold, GLOBALEPOCH)
+'''
 if LOADCSV:
     logger.info('Convert to npy..')
     coltypes = dict((i, np.float32) for i in range(2048))
@@ -204,14 +230,16 @@ if LOADCSV:
     np.savez_compressed(os.path.join(path_emb, 'trn_{}'.format(embnm)), trnemb)
     np.savez_compressed(os.path.join(path_emb, 'val_{}'.format(embnm)), valemb)
     np.savez_compressed(os.path.join(path_emb, 'tst_{}'.format(embnm)), tstemb)
-
+'''
 logger.info('Load npy..')
-valemb = np.load(os.path.join(path_emb, 'val_{}.npz'.format(embnm)))['arr_0']
-tstemb = np.load(os.path.join(path_emb, 'tst_{}.npz'.format(embnm)))['arr_0']
-trnemb = np.load(os.path.join(path_emb, 'trn_{}.npz'.format(embnm)))['arr_0']
+trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+tstemb = np.load(os.path.join(path_emb, 'emb_tst_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+
 logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
 logger.info('Tst shape {} {}'.format(*tstemb.shape))
+
 
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
@@ -287,8 +315,8 @@ for epoch in range(EPOCHS):
         param.requires_grad = True
     model.train()  
     for step, batch in enumerate(trnloader):
-        if step>100:
-            break
+        #if step>100:
+        #    break
         y = batch['labels'].to(device, dtype=torch.float)
         mask = batch['mask'].to(device, dtype=torch.int)
         x = batch['emb'].to(device, dtype=torch.float)
