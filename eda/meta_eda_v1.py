@@ -19,7 +19,10 @@ df_tst = pd.read_feather(os.path.join(path, 'df_tst.fth'))
 df_trn = pd.read_feather(os.path.join(path, 'df_trn.fth'))
 dfstats = pd.read_csv(os.path.join(path, 'img_stats.csv.gz'))
 dfstats['Image'] = dfstats['Image'].str.replace('.jpg', '')
+dfstats.columns = ['Image', 'jpgmean', 'jpgstd']
 comb = df_trn.join(df_lbls.set_index('ID'), 'SOPInstanceUID')
+comb = comb.join(dfstats.set_index('Image'), 'SOPInstanceUID')
+comb = comb.drop('fname', 1)
 assert not len(comb[comb['any'].isna()])
 
 comb.head().T
@@ -32,6 +35,16 @@ comb.pivot_table(values=['img_mean','img_max','img_min','PatientID','any'], inde
                             'PatientID':'count',
                             'any':'mean'})
 
+repr_flds = ['BitsStored','PixelRepresentation']
+comb.pivot_table(values=['jpgmean', 'jpgstd', 'img_mean','img_max','img_min','PatientID','any'], index=repr_flds,
+                   aggfunc={'jpgmean':'mean',
+                            'jpgstd':'mean',
+                            'img_mean':'mean',
+                            'img_max':'max',
+                            'img_min':'min',
+                            'PatientID':'count',
+                            'any':'mean'})
+    
 comb.pivot_table(values=['WindowCenter','WindowWidth', 
                          'RescaleIntercept', 'RescaleSlope'], 
                             index=repr_flds,

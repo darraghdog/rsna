@@ -44,8 +44,8 @@ for fold in [0]:
     for epoch in range(2, 7):
         #ypred = pd.read_csv(os.path.join(path, 'val_pred_256_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         
-        #ypred = pd.read_csv(os.path.join(path, 'v5/val_pred_256_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-        ypred = pd.read_csv(os.path.join(path, 'v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        ypred = pd.read_csv(os.path.join(path, 'v4/val_pred_256_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        #ypred = pd.read_csv(os.path.join(path, 'v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         ypred[['Image', 'PatientID']] =  yact[['Image', 'PatientID']]
         ypred = ypred.merge(trnmdf[['SOPInstanceUID', 'seq']], left_on='Image', right_on ='SOPInstanceUID', how='inner')
         ypred = ypred.sort_values(['PatientID', 'seq'])

@@ -14,7 +14,9 @@ import ast
 
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
-path='/Users/dhanley2/Documents/Personal/rsna/sub/fold'
+path_data=path='/Users/dhanley2/Documents/Personal/rsna/sub/fold'
+≈
+
 
 bag=3
 trnmdf = pd.read_csv(os.path.join(path, '../../data/train_metadata.csv'))
@@ -24,6 +26,11 @@ trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
 trnmdf = trnmdf.sort_values(['PatientID']+poscols)\
                 [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 trnmdf['seq'] = trnmdf.groupby(['PatientID']).cumcount() + 1
+
+pd.Series(trnmdf.seq.values==\
+          mdf.set_index('Image').loc[trnmdf.SOPInstanceUID].seq.values).value_counts()
+
+
 
 wts3 = np.array([0.6, 1.8, 0.6])
 #wts5 = np.array([0.5, 1., 2., 1., 0.5])
