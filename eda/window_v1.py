@@ -119,15 +119,23 @@ def convert_dicom_to_npz(imfile):
         image = rescale_image(image, rescaledict['RescaleSlope'][imgnm], rescaledict['RescaleIntercept'][imgnm])
         image = apply_window_policy(image)
         np.savez_compressed(os.path.join(path_proc, imgnm), image)
-        '''
-        imgcrop = autocrop(image, threshold=0)
-        statsdict[imgnm] = {
-                'mean' : str([*imgcrop.mean((0,1)).astype(np.float16)]),
-                'std' : str([*imgcrop.std((0,1)).astype(np.float16)]),
-                }    
-        '''
     except:
         print(imfile)
+
+        
+def convert_dicom_to_jpg(name):
+    try:
+        data = f.read(name)
+        imgnm = (name.split('/')[-1]).replace('.dcm', '')
+        dicom = pydicom.dcmread(DicomBytesIO(data))
+        image = dicom.pixel_array
+        image = rescale_image(image, rescaledict['RescaleSlope'][imgnm], rescaledict['RescaleIntercept'][imgnm])
+        image = apply_window_policy(image)
+        image -= image.min((0,1))
+        image = (255*image).astype(np.uint8)
+        cv2.imwrite(os.path.join(path_proc, imgnm)+'.jpg', image)
+    except:
+        print(name)
 
 path_img = '/Users/dhanley2/Documents/Personal/rsna/data/orig'
 imgnms = glob.glob(path_img+'/*.dcm')
@@ -139,24 +147,9 @@ mdf = pd.concat([trnmdf, tstmdf], 0)
 path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
 rescaledict = mdf.set_index('SOPInstanceUID')[['RescaleSlope', 'RescaleIntercept']].to_dict()
 
-statsdict = {}
-Parallel(n_jobs=4)(delayed(convert_dicom_to_npz)(file) for file in tqdm(imgnms, total=len(imgnms)))
+import zipfile
+from pydicom.filebase import DicomBytesIO
+with zipfile.ZipFile(os.path.join(path_img, "rsna-intracranial-hemorrhage-detection.zip"), "r") as f:
+    for t, name in enumerate(tqdm(f.namelist())):
+        convert_dicom_to_jpg(name)
 
-statsdf = pd.DataFrame(statsdict).transpose()
-statsdf.to_csv('statsdf_crop.csv', compression = 'gzip')
-
-'''
-for imfile in tqdm(imgnms):
-    imgnm = (imfile.split('/')[-1]).replace('.dcm', '')
-    dicomdict = mdf[mdf.SOPInstanceUID ==imgnm].iloc[0].to_dict()
-    dicom = pydicom.dcmread(os.path.join(imfile))
-    image = dicom.pixel_array
-    image = rescale_image(image, dicomdict['RescaleSlope'], dicomdict['RescaleIntercept'])
-    image = apply_window_policy(image)
-    np.savez_compressed(os.path.join(path_proc, 'b4_'+imgnm), image)
-    imgcrop = autocrop(image, threshold=0)
-    statsdict[imgnm] = {
-            'mean' : str([*imgcrop.mean((0,1)).astype(np.float16)]),
-            'std' : str([*imgcrop.std((0,1)).astype(np.float16)]),
-            }    
-'''

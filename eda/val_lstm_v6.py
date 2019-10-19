@@ -27,11 +27,7 @@ wts3 = np.array([0.6, 1.8, 0.6])
 
 train = pd.read_csv(os.path.join(path_data, '../data/train.csv.gz'))
 train = train.set_index('Image').reset_index()
-
-# get fold
-valdf = train[train['fold']==fold].reset_index(drop=True)
-trndf = train[train['fold']!=fold].reset_index(drop=True)
-
+train = train[train.Image!='ID_9cae9cd5d']
 
 # Load up actuals
 trndf = pd.read_csv(os.path.join(path_data, 'seq/v4/trndf.csv.gz'))
@@ -46,14 +42,14 @@ def makeSub(ypred, imgs):
     return subdf
 
 # Load lstms
-FOLD=0
+FOLD=2
 fname = 'seq/v6/lstmdeep_{}_emb_sz256_wt256_fold{}_epoch{}.csv.gz'
 lstmlssub = [pd.read_csv(os.path.join(path_data, \
-                                     fname.format('sub', FOLD, i)), index_col= 'ID') for i in range(1,7)]
+                                     fname.format('sub', FOLD, i)), index_col= 'ID') for i in range(1,2)]
 lstmlsval = [pd.read_csv(os.path.join(path_data, \
-                                     fname.format('val', FOLD, i)), index_col= 'ID') for i in range(1,7)]
-
+                                     fname.format('val', FOLD, i)), index_col= 'ID') for i in range(1,2)]
 valdf = train[train.fold==FOLD]
+valdf = valdf[valdf.Image!='ID_9cae9cd5d']
 
 yactval = makeSub(valdf[label_cols].values, valdf.Image.tolist()).set_index('ID')
 ysub = pd.read_csv(os.path.join(path_data, '../sub/lb_sub.csv'), index_col= 'ID')
@@ -64,8 +60,12 @@ ylstmval = sum(lstmlsval)/len(lstmlsval)
 ylstmsub = ylstmsub.clip(0.0005, 0.9995)
 ylstmval = ylstmval.clip(0.0005, 0.9995)
 
-weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
-valloss = log_loss(yactval['Label'].values, ylstmval.loc[yactval.index]['Label'].values, sample_weight = weights)
+ylstmval = ylstmval[~(pd.Series(ylstmval.index.tolist()).str.contains('ID_9cae9cd5d')).values]
+
+
+weights = ([1, 1, 1, 1, 1, 2] * (ylstmval.shape[0]//6))
+ylstmval.loc[yactval.index]['Label'].values
+valloss = log_loss(yactval.loc[ylstmval.index]['Label'].values, ylstmval['Label'].values, sample_weight = weights)
 print('Epoch {} bagged val logloss {:.5f}'.format(3, valloss))
 
 
