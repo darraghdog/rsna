@@ -42,56 +42,48 @@ def makeSub(ypred, imgs):
     return subdf
 
 # Load lstms
-FOLD=2
-fname = 'seq/v6/lstmdeep_{}_emb_sz256_wt256_fold{}_epoch{}.csv.gz'
-lstmlssub = [pd.read_csv(os.path.join(path_data, \
-                                     fname.format('sub', FOLD, i)), index_col= 'ID') for i in range(1,2)]
-lstmlsval = [pd.read_csv(os.path.join(path_data, \
-                                     fname.format('val', FOLD, i)), index_col= 'ID') for i in range(1,2)]
-valdf = train[train.fold==FOLD]
-valdf = valdf[valdf.Image!='ID_9cae9cd5d']
+for FOLD,BAG in zip([0,1,2], [7,5,7]):
+    #FOLD=1
+    fname = 'seq/v6/lstmdeep_{}_emb_sz256_wt256_fold{}_epoch{}.csv.gz'
+    lstmlssub = [pd.read_csv(os.path.join(path_data, \
+                                         fname.format('sub', FOLD, i)), index_col= 'ID') for i in range(1,BAG)]
+    lstmlsval = [pd.read_csv(os.path.join(path_data, \
+                                         fname.format('val', FOLD, i)), index_col= 'ID') for i in range(1,BAG)]
+    valdf = train[train.fold==FOLD]
+    valdf = valdf[valdf.Image!='ID_9cae9cd5d']
+    
+    yactval = makeSub(valdf[label_cols].values, valdf.Image.tolist()).set_index('ID')
+    ysub = pd.read_csv(os.path.join(path_data, '../sub/lb_sub.csv'), index_col= 'ID')
+    subbst = pd.read_csv('~/Downloads/sub_pred_sz384_fold5_bag6_wtd_resnextv8.csv.gz', index_col= 'ID')
+    sublstm = pd.read_csv('~/Downloads/sub_lstm_emb_sz256_wt256_fold0_gepoch235.csv.gz', index_col= 'ID')
+    ylstmsub = sum(lstmlssub)/len(lstmlssub)
+    ylstmval = sum(lstmlsval)/len(lstmlsval)
+    ylstmsub = ylstmsub.clip(0.0001, 0.9999)
+    ylstmval = ylstmval.clip(0.0001, 0.9999)
+    
+    ylstmval = ylstmval[~(pd.Series(ylstmval.index.tolist()).str.contains('ID_9cae9cd5d')).values]
+    
+    
+    weights = ([1, 1, 1, 1, 1, 2] * (ylstmval.shape[0]//6))
+    ylstmval.loc[yactval.index]['Label'].values
+    valloss = log_loss(yactval.loc[ylstmval.index]['Label'].values, ylstmval['Label'].values, sample_weight = weights)
+    print('Epoch {} bagged val logloss {:.5f}'.format(3, valloss))
 
-yactval = makeSub(valdf[label_cols].values, valdf.Image.tolist()).set_index('ID')
-ysub = pd.read_csv(os.path.join(path_data, '../sub/lb_sub.csv'), index_col= 'ID')
-subbst = pd.read_csv('~/Downloads/sub_pred_sz384_fold5_bag6_wtd_resnextv8.csv.gz', index_col= 'ID')
-sublstm = pd.read_csv('~/Downloads/sub_lstm_emb_sz256_wt256_fold0_gepoch235.csv.gz', index_col= 'ID')
+lstmlssub = []
+for FOLD,BAG in zip([0,1,2], [7,5,7]):
+    lstmlssub += [pd.read_csv(os.path.join(path_data, \
+                                         fname.format('sub', FOLD, i)), index_col= 'ID') for i in range(1,BAG)]
 ylstmsub = sum(lstmlssub)/len(lstmlssub)
-ylstmval = sum(lstmlsval)/len(lstmlsval)
-ylstmsub = ylstmsub.clip(0.0005, 0.9995)
-ylstmval = ylstmval.clip(0.0005, 0.9995)
-
-ylstmval = ylstmval[~(pd.Series(ylstmval.index.tolist()).str.contains('ID_9cae9cd5d')).values]
-
-
-weights = ([1, 1, 1, 1, 1, 2] * (ylstmval.shape[0]//6))
-ylstmval.loc[yactval.index]['Label'].values
-valloss = log_loss(yactval.loc[ylstmval.index]['Label'].values, ylstmval['Label'].values, sample_weight = weights)
-print('Epoch {} bagged val logloss {:.5f}'.format(3, valloss))
-
+ylstmsub = ylstmsub.clip(0.0001, 0.9999)
 
 ylstmsub.Label[ylstmsub.Label>0.03].hist(bins=100)
 ylstmval.Label[ylstmval.Label>0.03].hist(bins=100)
 sublstm.Label[sublstm.Label>0.03].hist(bins=100)
 
-idx = trnmdf.Image.isin([i[:12] for i in set(ylstmval.index.tolist())])
-set(trnmdf[~idx].PatientID.unique().tolist()).intersection(set(trnmdf[idx].PatientID.unique().tolist()))
-
-
 print(pd.concat([subbst, ylstmsub], 1).corr())
 print(pd.concat([sublstm, ylstmsub], 1).corr())
 print(pd.concat([subbst, ysub], 1).corr())
 
-ylstmsub.to_csv(os.path.join(path, '../sub/sub_lstmdeep_emb_resnextv6_sz384_fold0_gepoch123456_bag4.csv.gz'), \
+ylstmsub.to_csv(os.path.join(path, '../sub/sub_lstmdeep_emb_resnextv6_sz384_fold012_gepoch123456_bag6.csv.gz'), \
             compression = 'gzip')
-
-subbag = subbst.copy()
-subbag.Label = (ylstmsub.loc[subbst.index].Label + subbst.loc[subbst.index].Label )/2
-
-ylstmsub.loc[subbst.index].Label.head()
-subbst.head()
-subbag.head()
-
-subbag.to_csv(os.path.join(path, '../sub/BAG_lstm_emb_resnextv4_AND_resnextv8.csv.gz'), \
-            compression = 'gzip')
-
 

@@ -41,12 +41,10 @@ ypredrmeanls = []
 for fold in [0]:
     yact = pd.read_csv(os.path.join(path, 'val_act_fold{}.csv.gz'.format(fold )))
     yactf = yact[label_cols].values.flatten()
-    for epoch in range(0, 1):
-        #ypred = pd.read_csv(os.path.join(path, 'val_pred_256_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-        ypred = pd.read_csv(os.path.join(path, '../../eda/seq/sev1/val_pred_sz448_wt448_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-
-        #ypred = pd.read_csv(os.path.join(path, 'v4/val_pred_256_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-        ypred = pd.read_csv(os.path.join(path, 'v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+    for epoch in range(0, 6):
+        #ypred = pd.read_csv(os.path.join(path, '../../eda/seq/se50v1/val_pred_sz448_wt448_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        ypred = pd.read_csv(os.path.join(path, '../../eda/seq/se100v1/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        #ypred = pd.read_csv(os.path.join(path, 'v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         ypred[['Image', 'PatientID']] =  yact[['Image', 'PatientID']]
         ypred = ypred.merge(trnmdf[['SOPInstanceUID', 'seq']], left_on='Image', right_on ='SOPInstanceUID', how='inner')
         ypred = ypred.sort_values(['PatientID', 'seq'])
@@ -66,6 +64,11 @@ for fold in [0]:
             log_loss(yactf, ypredrmean, sample_weight = weights), \
             log_loss(yactf, sum(ypredls)/len(ypredls), sample_weight = weights), \
             log_loss(yactf, sum(ypredrmeanls)/len(ypredrmeanls), sample_weight = weights)))   
+        
+a = (sum(ypredls)/len(ypredls)).copy()
+b = (sum(ypredls)/len(ypredls)).copy()
+np.expand_dims(a, 1)
+b
 
 from decimal import Decimal
 Decimal(0.00003 - 2.1000000000000002e-05)
