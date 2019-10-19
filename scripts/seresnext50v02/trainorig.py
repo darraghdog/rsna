@@ -36,7 +36,7 @@ import datetime
 import torchvision
 from torchvision import transforms as T
 from torchvision.models.resnet import ResNet, Bottleneck
-
+import pretrainedmodels
 
 from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
                            VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
@@ -51,7 +51,6 @@ from apex.parallel import DistributedDataParallel as DDP
 from apex.fp16_utils import *
 from apex import amp, optimizers
 from apex.multi_tensor_apply import multi_tensor_applier
-
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -90,7 +89,6 @@ logger.info('Device : {}'.format(torch.cuda.get_device_name(0)))
 logger.info('Cuda available : {}'.format(torch.cuda.is_available()))
 n_gpu = torch.cuda.device_count()
 logger.info('Cuda n_gpus : {}'.format(n_gpu ))
-
 
 
 logger.info('Load params : time {}'.format(datetime.datetime.now().time()))
@@ -149,6 +147,25 @@ def autocrop(image, threshold=0):
     imageout[:image.shape[0], :image.shape[1],:] = image.copy()
     return imageout
 
+def autocropmin(image, threshold=0, kernsel_size = 10):
+        
+    img = image.copy()
+    SIZE = img.shape[0]
+    imgfilt = ndimage.minimum_filter(img.max((2)), size=kernsel_size)
+    rows = np.where(np.max(imgfilt, 0) > threshold)[0]
+    cols = np.where(np.max(imgfilt, 1) > threshold)[0]
+    row1, row2 = rows[0], rows[-1] + 1
+    col1, col2 = cols[0], cols[-1] + 1
+    row1, col1 = max(0, row1-kernsel_size), max(0, col1-kernsel_size)
+    row2, col2 = min(SIZE, row2+kernsel_size), min(SIZE, col2+kernsel_size)
+    image = image[col1: col2, row1: row2]
+    #logger.info(image.shape)
+    sqside = max(image.shape)
+    imageout = np.zeros((sqside, sqside, 3), dtype = 'uint8')
+    imageout[:image.shape[0], :image.shape[1],:] = image.copy()
+    return imageout
+
+
 class IntracranialDataset(Dataset):
 
     def __init__(self, df, path, labels, transform=None):
@@ -165,7 +182,10 @@ class IntracranialDataset(Dataset):
         #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
         img = cv2.imread(img_name)      
         try:
-            img = autocrop(img, threshold=0)  
+            try:
+                img = autocrop(img, threshold=0, kernsel_size = image.shape[0]//15)
+            except:
+                img = autocrop(img, threshold=0)  
         except:
             1
             # logger.info('Problem : {}'.format(img_name))      
@@ -188,6 +208,14 @@ if n_gpu > 0:
     torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
 # Data loaders
+transform_train = Compose([
+    ShiftScaleRotate(),
+    ToTensor()
+])
+
+transform_test= Compose([
+    ToTensor()
+])
     
 logger.info('Load Dataframes')
 dir_train_img = os.path.join(path_data, 'stage_1_train_images_jpg')
@@ -241,10 +269,16 @@ model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', 
 model.classifier = torch.nn.Linear(1280, n_classes)
 model.to(device)
 '''
-model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-model.fc = torch.nn.Linear(2048, n_classes)
+#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+
+model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
+model = model_func(num_classes=1000, pretrained='imagenet')
+#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/model_se_resnext50_32x4d.bin'))
+model.avg_pool = nn.AdaptiveAvgPool2d(1)
+model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)
 model.to(device)
-#model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
+
+
 
 criterion = torch.nn.BCEWithLogitsLoss()
 def criterion(data, targets, criterion = torch.nn.BCEWithLogitsLoss()):
@@ -257,12 +291,17 @@ plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
 
 model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
-
 model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
+    '''
+    if epoch < 2:
+        input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
+        model.load_state_dict(torch.load(input_model_file))
+        continue
+    '''
     if INFER not in ['TST', 'EMB', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True
@@ -287,21 +326,25 @@ for epoch in range(n_epochs):
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        output_model_file = 'weights/model_fold{}_epoch{}.bin'.format(fold, epoch)
+        output_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
         #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-        model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-        model.fc = torch.nn.Linear(2048, n_classes)
+
+        model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
+        model = model_func(num_classes=1000, pretrained='imagenet')
+        model.avg_pool = nn.AdaptiveAvgPool2d(1)
+        model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)
         model.to(device)
         model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
         for param in model.parameters():
             param.requires_grad = False
-        input_model_file = 'weights/model_fold{}_epoch{}.bin'.format(fold, epoch)
+        input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
         model.load_state_dict(torch.load(input_model_file))
     model.eval()
-    if (INFER not in ['EMB', 'NULL', 'TST']) and (fold!=5):
+    logger.info(model.parameters())
+    if INFER not in ['EMB', 'NULL', 'TST']:
         valls = []
         for step, batch in enumerate(valloader):
             if step%1000==0:
@@ -314,7 +357,7 @@ for epoch in range(n_epochs):
         yact = valdf[label_cols].values.flatten()
         ypred = np.concatenate(valls, 0).flatten()
         valloss = log_loss(yact, ypred, sample_weight = weights)
-        logger.info('Epoch {} logloss {}'.format(epoch, valloss))
+        logger.info('Epoch {} logloss {:.5f}, fold{}'.format(epoch, valloss, fold))
         valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
         valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
@@ -328,30 +371,26 @@ for epoch in range(n_epochs):
             out = model(inputs)
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
-        test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
+        test.to_csv('tst_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
         tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
-
     if INFER=='EMB':
-        logger.info('Output embeddings epoch {}'.format(epoch)) 
+        logger.info('Output embeddings epoch {}'.format(epoch))
+        logger.info('Train shape {} {}'.format(*trndf.shape))
+        logger.info('Valid shape {} {}'.format(*valdf.shape))
+        logger.info('Test  shape {} {}'.format(*test.shape)) 
         trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_test, labels=False)
-        if fold!=5:
-            valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
+        valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
         tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
         trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
-        if fold!=5:
-            valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+        valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         # Extract embedding layer
-        model.fc = Identity()
+        model.module.last_linear = Identity()
+        model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
+        model.eval()
         if epoch < 1:
             continue
-        if fold==5:
-            typels = ['trn', 'tst']
-            loaderls = [trnloader,  tstloader]
-        else:
-            typels = ['trn', 'val', 'tst']
-            loaderls = [trnloader, valloader, tstloader]
-        for typ, loader in zip(typels, loaderls):
+        for typ, loader in zip(['tst', 'val', 'trn'], [tstloader, valloader, trnloader]):
             ls = []
             for step, batch in enumerate(loader):
                 if step%1000==0:
@@ -360,7 +399,10 @@ for epoch in range(n_epochs):
                 inputs = inputs.to(device, dtype=torch.float)
                 out = model(inputs)
                 ls.append(out.detach().cpu().numpy())
+                #logger.info('Out shape {}'.format(out.shape))
+                #logger.info('Final ls shape {}'.format(ls[-1].shape))
             outemb = np.concatenate(ls, 0)
+            logger.info('Write embeddings : shape {} {}'.format(*outemb))
             np.savez_compressed('emb_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), outemb)
             dumpobj('loader_{}_size{}_fold{}_ep{}'.format(typ, SIZE, fold, epoch), loader)
             gc.collect()

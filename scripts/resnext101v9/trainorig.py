@@ -41,7 +41,7 @@ from torchvision.models.resnet import ResNet, Bottleneck
 from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
                            VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
                            GaussNoise, RandomGamma, RandomContrast, RandomBrightness, HueSaturationValue,
-                           RandomCrop, Lambda, NoOp, CenterCrop, Resize
+                           RandomBrightnessContrast, Lambda, NoOp, CenterCrop, Resize
                            )
 
 from tqdm import tqdm
@@ -211,10 +211,12 @@ trndf = train[train['fold']!=fold].reset_index(drop=True)
 # Data loaders
 transform_train = Compose([
     #ShiftScaleRotate(),
-    #CenterCrop(height = SIZE//10, width = SIZE//10, p=0.3),
+    #RandomCrop(height = SIZE, width = SIZE, scale = (0.9, 1.0), p=0.8),
     HorizontalFlip(p=0.5),
+    VerticalFlip(p=0.5),
+    RandomBrightnessContrast(brightness_limit=0.08, contrast_limit=0.08, p=0.5),
     ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
-                         rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
+                         rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
     Transpose(p=0.5),
     ToTensor()
 ])
@@ -222,6 +224,19 @@ transform_train = Compose([
 transform_test= Compose([
     ToTensor()
 ])
+
+
+transform_testtta = Compose([
+    HorizontalFlip(p=0.5),
+    VerticalFlip(p=0.5),
+    RandomBrightnessContrast(brightness_limit=0.03, contrast_limit=0.03, p=0.5),
+    ShiftScaleRotate(shift_limit=0.03, scale_limit=0.03,
+                         rotate_limit=15, p=0.7, border_mode = cv2.BORDER_REPLICATE),
+    Transpose(p=0.5),
+    ToTensor()
+])
+
+
 
 trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_train, labels=True)
 valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
@@ -303,23 +318,33 @@ for epoch in range(n_epochs):
     model.eval()
     if (INFER not in ['EMB', 'NULL', 'TST']) and (fold!=5):
         valls = []
-        for step, batch in enumerate(valloader):
-            if step%1000==0:
-                logger.info('Val step {} of {}'.format(step, len(valloader)))
-            inputs = batch["image"]
-            inputs = inputs.to(device, dtype=torch.float)
-            out = model(inputs)
-            valls.append(torch.sigmoid(out).detach().cpu().numpy())
+        # TTA
+        valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_testtta, labels=False)
+        valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+
+        for i in range(5):
+            vallssub = []
+            for step, batch in enumerate(valloader):
+                if step%72==0:
+                    logger.info('Val step {} of {}'.format(step, len(valloader)))
+                inputs = batch["image"]
+                inputs = inputs.to(device, dtype=torch.float)
+                out = model(inputs)
+                vallssub.append(torch.sigmoid(out).detach().cpu().numpy())
+            valls.append(np.concatenate(vallssub, 0))
+        valpr = sum(valls)/len(valls)
         weights = ([1, 1, 1, 1, 1, 2] * valdf.shape[0])
         yact = valdf[label_cols].values.flatten()
-        ypred = np.concatenate(valls, 0).flatten()
+        ypred = valpr.flatten()
         valloss = log_loss(yact, ypred, sample_weight = weights)
         logger.info('Epoch {} logloss {}'.format(epoch, valloss))
-        valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
+        valpreddf = pd.DataFrame(valpr, columns = label_cols)
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
-        valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
+        valpreddf.to_csv('val_pred_tta_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
     if INFER == 'TST':
         tstls = []
+        tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_testtta, labels=False)
+        tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         for step, batch in enumerate(tstloader):
             if step%1000==0:
                 logger.info('Tst step {} of {}'.format(step, len(tstloader)))
@@ -329,14 +354,14 @@ for epoch in range(n_epochs):
             tstls.append(torch.sigmoid(out).detach().cpu().numpy())
         tstpreddf = pd.DataFrame(np.concatenate(tstls, 0), columns = label_cols)
         test.to_csv('tst_act_fold.csv.gz', compression='gzip', index = False)
-        tstpreddf.to_csv('tst_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
+        tstpreddf.to_csv('tst_pred_tta_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
 
     if INFER=='EMB':
         logger.info('Output embeddings epoch {}'.format(epoch)) 
-        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_test, labels=False)
+        trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_testtta, labels=False)
         if fold!=5:
-            valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
-        tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
+            valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_testtta, labels=False)
+        tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_testtta, labels=False)
         trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         if fold!=5:
             valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
