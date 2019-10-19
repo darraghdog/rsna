@@ -364,7 +364,7 @@ for epoch in range(EPOCHS):
     ypredls.append(ypred)
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
-    yvalout.to_csv(os.path.join(path_emb, 'lstmdeep_val_{}.csv.gz'.format(embnm)), \
+    yvalout.to_csv(os.path.join(path_emb, 'lstm{}deep_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -380,10 +380,10 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    ytstout.to_csv(os.path.join(path_emb, 'lstmdeep_sub_{}.csv.gz'.format(embnm)), \
+    ytstout.to_csv(os.path.join(path_emb, 'lstm{}deep_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstmdeep_{}.bin'.format(embnm)
+    output_model_file = 'weights/model_lstm{}deep_{}.bin'.format(LSTM_UNITS, embnm)
     torch.save(model.state_dict(), output_model_file)
 
