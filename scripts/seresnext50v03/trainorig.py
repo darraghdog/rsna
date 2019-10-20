@@ -228,6 +228,9 @@ test = pd.read_csv(os.path.join(path_data, 'test.csv.gz'))
 png = glob.glob(os.path.join(dir_train_img, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
 png = np.array(png)
+trnimages = set(train.Image.tolist())
+print(len(trnimages))
+png = [p for p in png if p in trnimages ]
 train = train.set_index('Image').loc[png].reset_index()
 
 # get fold
