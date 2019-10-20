@@ -246,12 +246,12 @@ transform_train = Compose([
     ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
                          rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
     Transpose(p=0.5),
-    Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
+    #Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
     ToTensor()
 ])
 
 transform_test= Compose([
-    Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
+    #Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
     ToTensor()
 ])
 
@@ -263,6 +263,7 @@ num_workers = 16
 trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+
 
 from torch.hub import load_state_dict_from_url
 from torchvision.models.resnet import ResNet, Bottleneck
@@ -315,8 +316,8 @@ for epoch in range(n_epochs):
                 logger.info('Train step {} of {}'.format(step, len(trnloader)))
             inputs = batch["image"] 
             labels = batch["labels"]
-            if False:
-                if step%20==0:
+            if True:
+                if step%400==0:
                     logger.info('Mean {:.5f} Min {:.5f} Max {:.5f}'.format(  inputs.mean().item(), inputs.max().item(), inputs.min().item()))
             inputs = inputs.to(device, dtype=torch.float)
             labels = labels.to(device, dtype=torch.float)
@@ -352,10 +353,14 @@ for epoch in range(n_epochs):
     logger.info(model.parameters())
     if INFER not in ['EMB', 'NULL', 'TST']:
         valls = []
+        valloader.dataset.data.to_csv('valloader.csv')
         for step, batch in enumerate(valloader):
+            inputs = batch["image"]
             if step%1000==0:
                 logger.info('Val step {} of {}'.format(step, len(valloader)))
-            inputs = batch["image"]
+            if True:
+                if step%400==0:
+                    logger.info('Mean {:.5f} Min {:.5f} Max {:.5f}'.format(  inputs.mean().item(), inputs.max().item(), inputs.min().item()))
             inputs = inputs.to(device, dtype=torch.float)
             out = model(inputs)
             valls.append(torch.sigmoid(out).detach().cpu().numpy())
@@ -367,6 +372,8 @@ for epoch in range(n_epochs):
         valpreddf = pd.DataFrame(np.concatenate(valls, 0), columns = label_cols)
         valdf.to_csv('val_act_fold{}.csv.gz'.format(fold), compression='gzip', index = False)
         valpreddf.to_csv('val_pred_sz{}_wt{}_fold{}_epoch{}.csv.gz'.format(SIZE, WTSIZE, fold, epoch), compression='gzip', index = False)
+        dumpobj('loader_{}_size{}_fold{}_ep{}'.format('val', SIZE, fold, epoch), valloader)
+
     if INFER == 'TST':
         tstls = []
         for step, batch in enumerate(tstloader):

@@ -293,6 +293,11 @@ model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
+    if epoch<2:
+        input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
+        model.load_state_dict(torch.load(input_model_file))
+        model.to(device)
+        continue
     if INFER not in ['TST', 'EMB', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True

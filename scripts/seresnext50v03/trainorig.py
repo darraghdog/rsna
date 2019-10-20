@@ -60,6 +60,7 @@ parser = optparse.OptionParser()
 parser.add_option('-s', '--seed', action="store", dest="seed", help="model seed", default="1234")
 parser.add_option('-o', '--fold', action="store", dest="fold", help="Fold for split", default="0")
 parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of bags for averaging", default="0")
+parser.add_option('-j', '--start', action="store", dest="start", help="Start epochs", default="0")
 parser.add_option('-e', '--epochs', action="store", dest="epochs", help="epochs", default="5")
 parser.add_option('-b', '--batchsize', action="store", dest="batchsize", help="batch size", default="16")
 parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/rsna/")
@@ -97,6 +98,7 @@ for (k,v) in options.__dict__.items():
 
 SEED = int(options.seed)
 SIZE = int(options.size)
+START = int(options.start)
 WTSIZE=int(options.wtsize) if int(options.wtsize) != 999 else SIZE
 EPOCHS = int(options.epochs)
 n_epochs = EPOCHS 
@@ -109,10 +111,6 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
-logger.info(os.listdir('/data/sdsml_prod/projects/data/ldc/rsna/data'))
-
-
-logger.info(os.listdir('/data/sdsml_prod/projects/data/ldc/rsna/data'))
 
 #classes = 1109
 device = 'cuda'
@@ -212,10 +210,8 @@ if n_gpu > 0:
     torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
 # Data loaders
-dir_train_img = os.path.join(path_data, 'stage_1_train_images_jpg')
-dir_test_img = os.path.join(path_data, 'stage_1_test_images_jpg')
-dir_train_img = os.path.join(path_data, '/data/sdsml_prod/projects/data/ldc/rsna/data/proc') #   'mount1/proc')
-dir_test_img = os.path.join(path_data, '/data/sdsml_prod/projects/data/ldc/rsna/data/proc') #  'mount1/proc')
+dir_train_img1 = os.path.join(path_data, 'stage_1_train_images_jpg')
+dir_test_img1 = os.path.join(path_data, 'stage_1_test_images_jpg')
 dir_train_img = os.path.join(path_data, 'proc')
 dir_test_img = os.path.join(path_data, 'proc')
 
@@ -225,12 +221,9 @@ label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid'
 
 train = pd.read_csv(os.path.join(path_data, 'train.csv.gz'))
 test = pd.read_csv(os.path.join(path_data, 'test.csv.gz'))
-png = glob.glob(os.path.join(dir_train_img, '*.jpg'))
+png = glob.glob(os.path.join(dir_train_img1, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
 png = np.array(png)
-trnimages = set(train.Image.tolist())
-print(len(trnimages))
-png = [p for p in png if p in trnimages ]
 train = train.set_index('Image').loc[png].reset_index()
 
 # get fold
@@ -301,12 +294,10 @@ model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    '''
-    if epoch < 2:
+    if epoch < START:
         input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
         model.load_state_dict(torch.load(input_model_file))
         continue
-    '''
     if INFER not in ['TST', 'EMB', 'VAL']:
         for param in model.parameters():
             param.requires_grad = True
