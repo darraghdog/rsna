@@ -20,6 +20,7 @@ import glob
 import numpy as np
 import pandas as pd
 import torch.optim as optim
+from collections import OrderedDict
 
 from albumentations import Compose, ShiftScaleRotate, Resize
 from albumentations.pytorch import ToTensor
@@ -109,10 +110,6 @@ WORK_DIR = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
-logger.info(os.listdir('/data/sdsml_prod/projects/data/ldc/rsna/data'))
-
-
-logger.info(os.listdir('/data/sdsml_prod/projects/data/ldc/rsna/data'))
 
 #classes = 1109
 device = 'cuda'
@@ -224,11 +221,16 @@ n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
 train = pd.read_csv(os.path.join(path_data, 'train.csv.gz'))
+logger.info(train.shape)
 test = pd.read_csv(os.path.join(path_data, 'test.csv.gz'))
 png = glob.glob(os.path.join(dir_train_img, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
 png = np.array(png)
+trnimages = set(train.Image.tolist())
+print(len(trnimages))
+png = [p for p in png if p in trnimages ]
 train = train.set_index('Image').loc[png].reset_index()
+logger.info(train.shape)
 
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
@@ -273,13 +275,12 @@ model.to(device)
 '''
 #model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
 
-model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
+model_func = pretrainedmodels.__dict__['se_resnext101_32x4d']
 model = model_func(num_classes=1000, pretrained='imagenet')
 #model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/model_se_resnext50_32x4d.bin'))
 model.avg_pool = nn.AdaptiveAvgPool2d(1)
 model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)
 model.to(device)
-
 
 
 criterion = torch.nn.BCEWithLogitsLoss()
@@ -337,7 +338,7 @@ for epoch in range(n_epochs):
         del model
         #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
 
-        model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
+        model_func = pretrainedmodels.__dict__['se_resnext101_32x4d']
         model = model_func(num_classes=1000, pretrained='imagenet')
         model.avg_pool = nn.AdaptiveAvgPool2d(1)
         model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)

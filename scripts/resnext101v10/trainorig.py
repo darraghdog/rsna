@@ -37,11 +37,10 @@ import torchvision
 from torchvision import transforms as T
 from torchvision.models.resnet import ResNet, Bottleneck
 
-
 from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
                            VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
                            GaussNoise, RandomGamma, RandomContrast, RandomBrightness, HueSaturationValue,
-                           RandomCrop, Lambda, NoOp, CenterCrop, Resize
+                           RandomBrightnessContrast, Lambda, NoOp, CenterCrop, Resize
                            )
 
 from tqdm import tqdm
