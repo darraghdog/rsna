@@ -58,8 +58,8 @@ for FOLD,BAG in zip([0,1,2], [7,5,7]):
     sublstm = pd.read_csv('~/Downloads/sub_lstm_emb_sz256_wt256_fold0_gepoch235.csv.gz', index_col= 'ID')
     ylstmsub = sum(lstmlssub)/len(lstmlssub)
     ylstmval = sum(lstmlsval)/len(lstmlsval)
-    ylstmsub = ylstmsub.clip(0.0001, 0.9999)
-    ylstmval = ylstmval.clip(0.0001, 0.9999)
+    ylstmsub = ylstmsub.clip(0.00001, 0.99999)
+    ylstmval = ylstmval.clip(0.00001, 0.99999)
     
     ylstmval = ylstmval[~(pd.Series(ylstmval.index.tolist()).str.contains('ID_9cae9cd5d')).values]
     

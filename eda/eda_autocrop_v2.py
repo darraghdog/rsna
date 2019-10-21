@@ -4,7 +4,27 @@ import glob
 import numpy as np
 from PIL import Image
 import pandas as pd
-from scipy import ndimage, misc        
+from scipy import ndimage, misc 
+
+import torch
+from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+import torch.nn as nn
+import torch.nn.functional as F
+from sklearn.model_selection import KFold
+
+from albumentations import Compose, ShiftScaleRotate, Resize
+from albumentations.pytorch import ToTensor
+from torch.utils.data import Dataset
+from sklearn.metrics import log_loss
+from torch.utils.data import DataLoader
+
+from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
+                           VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
+                           GaussNoise, RandomGamma, RandomContrast, RandomBrightness, HueSaturationValue,
+                           RandomCrop, Lambda, NoOp, CenterCrop, Resize
+                           )
+       
          
 def autocropmin(image, threshold=0, kernsel_size = 10):
         
@@ -50,11 +70,11 @@ SIZE=384
 
 path = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
 imgls = glob.glob(path+'/*')
-
+len(imgls)
 
 from IPython.display import display
-
-for ii in range(60, 300):
+'''
+for ii in range(300, 1000):
     try:
         img = cv2.imread(imgls[ii])
         img = cv2.resize(img,(SIZE,SIZE))
@@ -71,7 +91,45 @@ for ii in range(60, 300):
         display(im)
     
         im.close()
-        time.sleep(1)
+        time.sleep(0.1)
     except:
         continue
-    
+   ''' 
+   
+mean_img = [0.22363983, 0.18190407, 0.2523437 ]
+std_img = [0.32451536, 0.2956294,  0.31335256]
+transform_train = Compose([
+    HorizontalFlip(p=0.5),
+    ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
+                         rotate_limit=20, p=0.3, border_mode = cv2.BORDER_REPLICATE),
+    Transpose(p=0.5),
+    Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
+    ToTensor()
+])
+
+from tqdm import tqdm
+meanls = []
+stdls = []
+
+for tt, imname in enumerate(imgls):
+    img = cv2.imread(imname)
+    try:
+        img = autocropmin(img, threshold=0) 
+    except:
+        try:
+            img = autocropmin(img, threshold=0) 
+        except:
+            1
+    # logger.info('Problem : {}'.format(img_name))      
+    img = cv2.resize(img,(SIZE,SIZE))
+    #img = np.expand_dims(img, -1)
+    augmented = transform_train(image=img)
+    img = augmented['image'] 
+    meanls.append( img.mean((1,2)).numpy())
+    stdls.append( img.std((1,2)).numpy())
+    if tt%100==0:
+        print(tt, np.mean(meanls, 0), np.mean(stdls, 0))
+
+meanls/len(imgls)
+stdls/len(imgls)
+
