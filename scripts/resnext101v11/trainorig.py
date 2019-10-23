@@ -36,12 +36,13 @@ import datetime
 import torchvision
 from torchvision import transforms as T
 from torchvision.models.resnet import ResNet, Bottleneck
-import pretrainedmodels
+from torch.hub import load_state_dict_from_url
+from torchvision.models.resnet import ResNet, Bottleneck
 
 from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
                            VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
                            GaussNoise, RandomGamma, RandomContrast, RandomBrightness, HueSaturationValue,
-                           RandomCrop, Lambda, NoOp, CenterCrop, Resize
+                           RandomBrightnessContrast, Lambda, NoOp, CenterCrop, Resize
                            )
 
 from tqdm import tqdm
@@ -52,6 +53,7 @@ from apex.fp16_utils import *
 from apex import amp, optimizers
 from apex.multi_tensor_apply import multi_tensor_applier
 
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -60,8 +62,8 @@ parser = optparse.OptionParser()
 parser.add_option('-s', '--seed', action="store", dest="seed", help="model seed", default="1234")
 parser.add_option('-o', '--fold', action="store", dest="fold", help="Fold for split", default="0")
 parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of bags for averaging", default="0")
-parser.add_option('-j', '--start', action="store", dest="start", help="Start epochs", default="0")
 parser.add_option('-e', '--epochs', action="store", dest="epochs", help="epochs", default="5")
+parser.add_option('-j', '--start', action="store", dest="start", help="Start epochs", default="0")
 parser.add_option('-b', '--batchsize', action="store", dest="batchsize", help="batch size", default="16")
 parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/rsna/")
 parser.add_option('-i', '--imgpath', action="store", dest="imgpath", help="root directory", default="data/mount/512X512X6/")
@@ -98,9 +100,9 @@ for (k,v) in options.__dict__.items():
 
 SEED = int(options.seed)
 SIZE = int(options.size)
-START = int(options.start)
 WTSIZE=int(options.wtsize) if int(options.wtsize) != 999 else SIZE
 EPOCHS = int(options.epochs)
+START = int(options.start)
 n_epochs = EPOCHS 
 lr=float(options.lr)
 batch_size = int(options.batchsize)
@@ -165,7 +167,6 @@ def autocropmin(image, threshold=0, kernsel_size = 10):
     imageout[:image.shape[0], :image.shape[1],:] = image.copy()
     return imageout
 
-
 class IntracranialDataset(Dataset):
 
     def __init__(self, df, path, labels, transform=None):
@@ -180,22 +181,19 @@ class IntracranialDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.data.loc[idx, 'Image'] + '.jpg')
         #img = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)   
-        img = cv2.imread(img_name)      
+        img = cv2.imread(img_name)    
         try:
             try:
                 img = autocrop(img, threshold=0, kernsel_size = image.shape[0]//15)
             except:
                 img = autocrop(img, threshold=0)  
         except:
-            1
-            # logger.info('Problem : {}'.format(img_name))      
+            1  
         img = cv2.resize(img,(SIZE,SIZE))
         #img = np.expand_dims(img, -1)
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
-
-        #logger.info('Mean {:.5f} Min {:.5f} Max {:.5f}'.format(  img.mean().item(), img.max().item(), img.min().item()))
         if self.labels:
             labels = torch.tensor(
                 self.data.loc[idx, label_cols])
@@ -209,7 +207,8 @@ torch.cuda.manual_seed(SEED)
 if n_gpu > 0:
     torch.cuda.manual_seed_all(SEED)
 torch.backends.cudnn.deterministic = True
-# Data loaders
+    
+logger.info('Load Dataframes')
 dir_train_img1 = os.path.join(path_data, 'stage_1_train_images_jpg')
 dir_test_img1 = os.path.join(path_data, 'stage_1_test_images_jpg')
 dir_train_img = os.path.join(path_data, 'proc')
@@ -229,7 +228,7 @@ train = train.set_index('Image').loc[png].reset_index()
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
-    
+
 # Data loaders
 mean_img = [0.22363983, 0.18190407, 0.2523437 ]
 std_img = [0.32451536, 0.2956294,  0.31335256]
@@ -258,25 +257,9 @@ trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_work
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 
-from torch.hub import load_state_dict_from_url
-from torchvision.models.resnet import ResNet, Bottleneck
-
-'''
-torch.hub.list('rwightman/gen-efficientnet-pytorch', force_reload=True)  
-model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-model.classifier = torch.nn.Linear(1280, n_classes)
+model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+model.fc = torch.nn.Linear(2048, n_classes)
 model.to(device)
-'''
-#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
-
-model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
-model = model_func(num_classes=1000, pretrained='imagenet')
-#model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/model_se_resnext50_32x4d.bin'))
-model.avg_pool = nn.AdaptiveAvgPool2d(1)
-model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)
-model.to(device)
-
-
 
 criterion = torch.nn.BCEWithLogitsLoss()
 def criterion(data, targets, criterion = torch.nn.BCEWithLogitsLoss()):
@@ -289,14 +272,16 @@ plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
 
 model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+
 model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
 
 for epoch in range(n_epochs):
     logger.info('Epoch {}/{}'.format(epoch, n_epochs - 1))
     logger.info('-' * 10)
-    if epoch < START:
+    if epoch<START:
         input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
         model.load_state_dict(torch.load(input_model_file))
+        model.to(device)
         continue
     if INFER not in ['TST', 'EMB', 'VAL']:
         for param in model.parameters():
@@ -306,11 +291,8 @@ for epoch in range(n_epochs):
         for step, batch in enumerate(trnloader):
             if step%1000==0:
                 logger.info('Train step {} of {}'.format(step, len(trnloader)))
-            inputs = batch["image"] 
+            inputs = batch["image"]
             labels = batch["labels"]
-            if False:
-                if step%20==0:
-                    logger.info('Mean {:.5f} Min {:.5f} Max {:.5f}'.format(  inputs.mean().item(), inputs.max().item(), inputs.min().item()))
             inputs = inputs.to(device, dtype=torch.float)
             labels = labels.to(device, dtype=torch.float)
             outputs = model(inputs)
@@ -330,17 +312,16 @@ for epoch in range(n_epochs):
     else:
         del model
         #model = torch.hub.load('rwightman/gen-efficientnet-pytorch', 'efficientnet_b0', pretrained=True)
-
-        model_func = pretrainedmodels.__dict__['se_resnext50_32x4d']
-        model = model_func(num_classes=1000, pretrained='imagenet')
-        model.avg_pool = nn.AdaptiveAvgPool2d(1)
-        model.last_linear = torch.nn.Linear(model.last_linear.in_features, n_classes)
+        model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
+        model.fc = torch.nn.Linear(2048, n_classes)
+        device = torch.device("cuda:{}".format(n_gpu-1))
         model.to(device)
-        model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
+        model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)[::-1]), output_device=device)
         for param in model.parameters():
             param.requires_grad = False
         input_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
         model.load_state_dict(torch.load(input_model_file))
+        model.to(device)
     model.eval()
     logger.info(model.parameters())
     if INFER not in ['EMB', 'NULL', 'TST']:
@@ -384,8 +365,8 @@ for epoch in range(n_epochs):
         valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         # Extract embedding layer
-        model.module.last_linear = Identity()
-        model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
+        model.module.fc = Identity()
+        #model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
         model.eval()
         for typ, loader in zip(['tst', 'val', 'trn'], [tstloader, valloader, trnloader]):
             ls = []
