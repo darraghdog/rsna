@@ -13,15 +13,6 @@ from sklearn.metrics import log_loss
 import ast
 import pickle
 
-from torchvision import transforms as T
-from albumentations import Compose, ShiftScaleRotate, Resize
-from albumentations.pytorch import ToTensor
-from albumentations import (Cutout, Compose, Normalize, RandomRotate90, HorizontalFlip,
-                           VerticalFlip, ShiftScaleRotate, Transpose, OneOf, IAAAdditiveGaussianNoise,
-                           GaussNoise, RandomGamma, RandomContrast, RandomBrightness, HueSaturationValue,
-                           RandomCrop, Lambda, NoOp, CenterCrop, Resize
-                           )
-
 def dumpobj(file, obj):
     with open(file, 'wb') as handle:
         pickle.dump(obj, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -60,10 +51,11 @@ ypredrmeanls = []
 for fold in [0]:
     yact = pd.read_csv(os.path.join(path, 'val_act_fold{}.csv.gz'.format(fold )))
     yactf = yact[label_cols].values.flatten()
-    for epoch in range(0, 7):
+    for epoch in range(0, 8):
         #ypred = pd.read_csv(os.path.join(path, 'seq/se50v3/val_pred_sz448_wt448_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         #ypred = pd.read_csv(os.path.join(path, '../../eda/seq/se100v1/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-        ypred = pd.read_csv(os.path.join(path, 'seq/v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        #ypred = pd.read_csv(os.path.join(path, 'seq/v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        ypred = pd.read_csv(os.path.join(path, 'seq/v11/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         ypred[['Image', 'PatientID']] =  yact[['Image', 'PatientID']]
         ypred = ypred.merge(trnmdf[['SOPInstanceUID', 'seq']], left_on='Image', right_on ='SOPInstanceUID', how='inner')
         ypred = ypred.sort_values(['PatientID', 'seq'])
@@ -86,6 +78,7 @@ for fold in [0]:
  
 
 '''
+V6
 Epoch 1 LLoss 0.07719 RmeanLLoss 0.07233 LLoss Avg 0.07719 Rmean Avg 0.07233
 Epoch 2 LLoss 0.07427 RmeanLLoss 0.06979 LLoss Avg 0.07199 Rmean Avg 0.06896
 Epoch 3 LLoss 0.07323 RmeanLLoss 0.06732 LLoss Avg 0.06965 Rmean Avg 0.06690
@@ -93,4 +86,26 @@ Epoch 4 LLoss 0.07191 RmeanLLoss 0.06686 LLoss Avg 0.06829 Rmean Avg 0.06576
 Epoch 5 LLoss 0.07473 RmeanLLoss 0.06854 LLoss Avg 0.06758 Rmean Avg 0.06520
 Epoch 6 LLoss 0.07560 RmeanLLoss 0.06861 LLoss Avg 0.06692 Rmean Avg 0.06464
 Epoch 7 LLoss 0.07335 RmeanLLoss 0.06680 LLoss Avg 0.06623 Rmean Avg 0.06405
-'''                               
+'''                     
+
+'''
+V11
+Epoch 1 LLoss 0.07518 RmeanLLoss 0.06948 LLoss Avg 0.07518 Rmean Avg 0.06948
+Epoch 2 LLoss 0.07234 RmeanLLoss 0.06820 LLoss Avg 0.06998 Rmean Avg 0.06666
+Epoch 3 LLoss 0.07338 RmeanLLoss 0.06727 LLoss Avg 0.06826 Rmean Avg 0.06524
+Epoch 4 LLoss 0.07338 RmeanLLoss 0.06743 LLoss Avg 0.06734 Rmean Avg 0.06462
+Epoch 5 LLoss 0.07416 RmeanLLoss 0.06716 LLoss Avg 0.06654 Rmean Avg 0.06395
+Epoch 6 LLoss 0.07358 RmeanLLoss 0.06665 LLoss Avg 0.06600 Rmean Avg 0.06346
+Epoch 7 LLoss 0.07475 RmeanLLoss 0.06749 LLoss Avg 0.06571 Rmean Avg 0.06324
+Epoch 8 LLoss 0.07957 RmeanLLoss 0.06837 LLoss Avg 0.06556 Rmean Avg 0.06299
+'''
+
+'''
+Epoch 2 LLoss 0.07234 RmeanLLoss 0.06820 LLoss Avg 0.07234 Rmean Avg 0.06820
+Epoch 3 LLoss 0.07338 RmeanLLoss 0.06727 LLoss Avg 0.06911 Rmean Avg 0.06569
+Epoch 4 LLoss 0.07338 RmeanLLoss 0.06743 LLoss Avg 0.06785 Rmean Avg 0.06483
+Epoch 5 LLoss 0.07416 RmeanLLoss 0.06716 LLoss Avg 0.06683 Rmean Avg 0.06399
+Epoch 6 LLoss 0.07358 RmeanLLoss 0.06665 LLoss Avg 0.06627 Rmean Avg 0.06348
+Epoch 7 LLoss 0.07475 RmeanLLoss 0.06749 LLoss Avg 0.06593 Rmean Avg 0.06323
+Epoch 8 LLoss 0.07957 RmeanLLoss 0.06837 LLoss Avg 0.06575 Rmean Avg 0.06295
+'''

@@ -2,6 +2,8 @@ import os
 import pickle
 import random
 import glob
+from PIL import Image
+
 
 import pandas as pd
 import numpy as np
@@ -129,78 +131,59 @@ def convert_dicom_to_npz(imfile):
     except:
         print(imfile)
 
-        
-def convert_dicom_to_jpg(name):
-    try:
-        data = f.read(name)
-        imgnm = (name.split('/')[-1]).replace('.dcm', '')
-        dicom = pydicom.dcmread(DicomBytesIO(data))
-        image = dicom.pixel_array
-        image = rescale_image(image, rescaledict['RescaleSlope'][imgnm], rescaledict['RescaleIntercept'][imgnm])
-        image = apply_window_policy(image)
-        image -= image.min((0,1))
-        image = (255*image).astype(np.uint8)
-        cv2.imwrite(os.path.join(path_proc, imgnm)+'.jpg', image)
-    except:
-        print(name)
-
-path_img = '/Users/dhanley2/Documents/Personal/rsna/data/orig'
-imgnms = glob.glob(path_img+'/*.dcm')
-
-path_data = '/Users/dhanley2/Documents/Personal/rsna/data'
-trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
-tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
-mdf = pd.concat([trnmdf, tstmdf], 0)
-path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
-rescaledict = mdf.set_index('SOPInstanceUID')[['RescaleSlope', 'RescaleIntercept']].to_dict()
-
-namesls = []
-import zipfile
-from pydicom.filebase import DicomBytesIO
-with zipfile.ZipFile(os.path.join(path_img, "rsna-intracranial-hemorrhage-detection.zip"), "r") as f:
-    for t, name in enumerate(tqdm(f.namelist())):
-        namesls.append(name)
-        convert_dicom_to_jpg(name)
-
-# https://stackoverflow.com/a/18558019
-# tar -c "proc" | pigz -c | split -a 5 -b "1000m" - "rsnaproc"
-        
-# https://www.tecmint.com/split-large-tar-into-multiple-files-of-certain-size/
-# split -b "4000M" proc.tar.gz "proc.tar.gz.part"
-# cat proc.tar.gza* > proc.tar.gz.joined
-        
+import SimpleITK   
 def convert_sadicom_to_jpg(name):
     try:
+
         data = f.read(name)
-        imgnm = (name.split('/')[-1]).replace('.dcm', '')
         dicom = pydicom.dcmread(DicomBytesIO(data))
         image = dicom.pixel_array
         rescale_slope, rescale_intercept = int(dicom.RescaleSlope), int(dicom.RescaleIntercept)
+        pos = list(map(float, (dicom.ImagePositionPatient)))
         image = rescale_image(image, rescale_slope, rescale_intercept)
         image = apply_window_policy(image)
         image -= image.min((0,1))
+        if image.max()!=1.0:
+            print('Image max {}'.format(image.max()))
         image = (255*image).astype(np.uint8)
-        Image.fromarray(image)
-        cv2.imwrite(os.path.join(path_proc, imgnm)+'.jpg', image)
+        cv2.imwrite(os.path.join(path_out, dicom.SOPInstanceUID)+'.jpg', image)
+        return dicom.SOPInstanceUID, pos
     except:
-        print(name)
-
+        print(name)#(dicom.SOPInstanceUID)
+        return '',[]
     
 path_img = '/Users/dhanley2/Documents/Personal/rsna/data/CQ500'
+path_out = '/Users/dhanley2/Documents/Personal/rsna/data/CQ500OUT'
+
+successls = []
+ 
+stop='CQ500CT103 CQ500CT103/Unknown Study/CT Thin Plain/CT000228.dcm'
 zipms = glob.glob(path_img+'/*zip')
 namesls = []
 import zipfile
+import PIL
+#import pgmagick
+#import gdcm
+import glymur
 from pydicom.filebase import DicomBytesIO
+
+posdict = {}
 for zipf in zipms:
     with zipfile.ZipFile(zipf,  "r") as f:
-        for t, name in enumerate(tqdm(f.namelist())):
-            namesls.append(name)
-            data = f.read(name)
-            dicom = pydicom.dcmread(DicomBytesIO(data))
-            break
-            
-            
-            imgnm = (name.split('/')[-1]).replace('.dcm', '')
-            dicom = pydicom.dcmread(DicomBytesIO(data))
+        try:
+            for t, name in enumerate(tqdm(f.namelist())):
+                data = f.read(name)
+                nm, pos = convert_sadicom_to_jpg(name)
+                posdict[nm] = pos
+        except:
+            1
         
-        convert_dicom_to_jpg(name)
+quredf = pd.read_csv(os.path.join(path_img, '../qureai-cq500-boxes.csv'))
+quredf = quredf[['SOPInstanceUID','labelName']].drop_duplicates()
+quredf = quredf.groupby(['SOPInstanceUID', 'labelName']).size().unstack(fill_value=0)
+quredf = quredf.clip(0,1)
+quredf.columns = [c.lower() for c in quredf.columns]
+label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
+quredf['any'] = quredf[label_cols[:-1]].max(1)
+quredf = quredf[label_cols]
+quredf.to_csv(os.path.join(path_img, '../quredf.csv'), compression = 'gzip')

@@ -133,3 +133,29 @@ for tt, imname in enumerate(imgls):
 meanls/len(imgls)
 stdls/len(imgls)
 
+
+path = '/Users/dhanley2/Documents/Personal/rsna/data'
+imgls = glob.glob(path+'/chk/bac/*')
+
+for tt, imname in enumerate(imgls):
+    imname2 = imname.replace('chk/bac/', 'chk/proc/')
+    i1 = cv2.imread(imname)
+    i2 = cv2.imread(imname2)
+    i1 = autocrop(i1, threshold=0)
+    try:
+        i2 = autocropmin(i2, threshold=0, kernsel_size = i2.shape[0]//15)
+    except:
+        i2 = autocrop(i2, threshold=0)
+        
+    i1 = cv2.resize(i1,(192,192))
+    i2 = cv2.resize(i2,(192,192))
+    im = np.concatenate((i1,i2), 1)
+    im = Image.fromarray(im)
+    os.system('pkill eog') #if you use GNOME Viewer
+    display(im)
+
+    im.close()
+    time.sleep(0.05)
+
+
+128+64
