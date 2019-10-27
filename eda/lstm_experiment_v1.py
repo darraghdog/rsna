@@ -38,6 +38,7 @@ trnmdf[['ImagePos1', 'ImagePos2', 'ImagePos3']].shift(1).head()
 trnmdf[['{}_lag'.format(i) for i in poslabels]] = trnmdf[poslabels] - trnmdf[poslabels].shift(1)
 ix = trnmdf[['PatientID', 'ImagePos1', 'ImagePos2']].shift(1) != trnmdf[['PatientID', 'ImagePos1', 'ImagePos2']]
 trnmdf .loc[np.where(ix.sum(1)!=0)[0], ['{}_lag'.format(i) for i in poslabels]] = 0
+trnmdf['ImagePos3_lag'].value_counts()
 
 
 trnmdf.filter(like='ImagePos')
