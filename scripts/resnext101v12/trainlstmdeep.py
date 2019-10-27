@@ -86,7 +86,8 @@ batch_size = int(options.batchsize)
 ROOT = options.rootpath
 path_data = os.path.join(ROOT, 'data')
 path_img = os.path.join(ROOT, options.imgpath)
-path_emb = WORK_DIR = os.path.join(ROOT, options.workpath)
+WORK_DIR = os.path.join(ROOT, options.workpath)
+path_emb=os.path.join('/data/sdsml_prod/projects/data/ldc/rsna/', options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 LOADCSV= options.loadcsv=='T'
@@ -364,7 +365,8 @@ for epoch in range(EPOCHS):
     ypredls.append(ypred)
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
-    yvalout.to_csv(os.path.join(path_emb, 'lstm{}deep_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+
+    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}deep_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -372,7 +374,7 @@ for epoch in range(EPOCHS):
     yact = valloader.dataset.data[label_cols].values#.flatten()
     yact = makeSub(yact, valloader.dataset.data['Image'].tolist())
     yact = yact.set_index('ID').loc[yvalout.ID].reset_index()
-    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values, sample_weight = weights)
+    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999) , sample_weight = weights)
     logger.info('Epoch {} bagged val logloss {:.5f}'.format(epoch, vallossavg))
     
     logger.info('Prep test sub...')
@@ -380,7 +382,7 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    ytstout.to_csv(os.path.join(path_emb, 'lstm{}deep_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}deep_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')

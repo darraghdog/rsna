@@ -135,6 +135,8 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+        patslc = patdf.filter(like='_lag').values
+        patemb = np.concatenate((patemb, patslc), 1)
         ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
@@ -142,7 +144,24 @@ class IntracranialDataset(Dataset):
         else:      
             return {'emb': patemb, 'embidx' : ids}
 
-
+def imagePosDelta(mdf):
+    # Get Lag for each of the images
+    poslabels = ['ImagePos1', 'ImagePos2', 'ImagePos3']
+    poslaglabels = ['{}_lag'.format(i) for i in poslabels]
+    mdf[poslaglabels] = mdf[poslabels] - mdf[poslabels].shift(1)
+    ix = mdf[['PatientID', 'ImagePos1', 'ImagePos2']].shift(1) != mdf[['PatientID', 'ImagePos1', 'ImagePos2']]
+    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos3_lag']] = 0
+    ix = mdf[['PatientID', 'ImagePos1']].shift(1) != mdf[['PatientID', 'ImagePos1']]
+    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos2_lag']] = 0
+    ix = mdf[['PatientID']].shift(1) != mdf[['PatientID']]
+    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos1_lag']] = 0
+    mdf['ImagePos3_lag'] += mdf[['ImagePos1_lag', 'ImagePos2_lag']].sum(1)
+    mdf['ImagePos2_lag'] += mdf[['ImagePos1_lag']].sum(1)
+    # Clip at a large value to cut extremes
+    mdf[poslaglabels] = mdf[poslaglabels].clip(0,100)
+    # Log the values
+    mdf[poslaglabels] = np.log(mdf[poslaglabels] + 1)
+    return mdf
 
 
 def predict(loader):
@@ -174,17 +193,6 @@ logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
-'''
-mdf = pd.concat([trnmdf, tstmdf])
-poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
-mdf[poscols] = pd.DataFrame(mdf['ImagePositionPatient']\
-              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
-mdf = mdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-mdf['seq'] = mdf.groupby(['PatientID']).cumcount() + 1
-mdf.rename(columns={'SOPInstanceUID':'Image'}, inplace = True)
-mdf = mdf[['Image', 'seq', 'PatientID']]
-'''
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
@@ -196,23 +204,20 @@ tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
                 [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 trnmdf['seq'] = (trnmdf.groupby(['PatientID']).cumcount() + 1)
 tstmdf['seq'] = (tstmdf.groupby(['PatientID']).cumcount() + 1)
-keepcols = ['PatientID', 'SOPInstanceUID', 'seq']
+trnmdf = imagePosDelta(trnmdf)
+tstmdf = imagePosDelta(tstmdf)
+
+
+keepcols = ['PatientID', 'SOPInstanceUID', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']
-
+trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
 
 # Load Data Frames
-
 trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 
-'''
-trndf = pd.read_csv(os.path.join(path_emb, 'trndf.csv.gz'))
-valdf = pd.read_csv(os.path.join(path_emb, 'valdf.csv.gz'))
-tstdf = pd.read_csv(os.path.join(path_emb, 'tstdf.csv.gz'))
-'''
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
@@ -223,17 +228,6 @@ tstdf = tstdf.merge(tstmdf, on = 'Image')
 # Load embeddings
 
 embnm='emb_sz256_wt256_fold{}_epoch{}'.format(fold, GLOBALEPOCH)
-'''
-if LOADCSV:
-    logger.info('Convert to npy..')
-    coltypes = dict((i, np.float32) for i in range(2048))
-    trnemb = pd.read_csv(os.path.join(path_emb, 'trn_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    valemb = pd.read_csv(os.path.join(path_emb, 'val_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    tstemb = pd.read_csv(os.path.join(path_emb, 'tst_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    np.savez_compressed(os.path.join(path_emb, 'trn_{}'.format(embnm)), trnemb)
-    np.savez_compressed(os.path.join(path_emb, 'val_{}'.format(embnm)), valemb)
-    np.savez_compressed(os.path.join(path_emb, 'tst_{}'.format(embnm)), tstemb)
-'''
 logger.info('Load npy..')
 trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
 valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
@@ -284,7 +278,7 @@ valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_w
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
-    def __init__(self, embed_size=trnemb.shape[-1], LSTM_UNITS=64, DO = 0.3):
+    def __init__(self, embed_size=trnemb.shape[-1]+3, LSTM_UNITS=64, DO = 0.3):
         super(NeuralNet, self).__init__()
         
         self.embedding_dropout = SpatialDropout(DO)
@@ -366,7 +360,7 @@ for epoch in range(EPOCHS):
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}deep_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}slice_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -374,7 +368,7 @@ for epoch in range(EPOCHS):
     yact = valloader.dataset.data[label_cols].values#.flatten()
     yact = makeSub(yact, valloader.dataset.data['Image'].tolist())
     yact = yact.set_index('ID').loc[yvalout.ID].reset_index()
-    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999) , sample_weight = weights)
+    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999), sample_weight = weights)
     logger.info('Epoch {} bagged val logloss {:.5f}'.format(epoch, vallossavg))
     
     logger.info('Prep test sub...')
@@ -382,10 +376,10 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}deep_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}slice_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstm{}deep_{}.bin'.format(LSTM_UNITS, embnm)
+    output_model_file = 'weights/model_lstm{}slice_{}.bin'.format(LSTM_UNITS, embnm)
     torch.save(model.state_dict(), output_model_file)
 

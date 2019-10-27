@@ -124,8 +124,8 @@ class IntracranialDataset(Dataset):
         self.data = df
         self.mat = mat
         self.labels = labels
-        self.patients = df.PatientID.unique()
-        self.data = self.data.set_index('PatientID')
+        self.patients = df.SliceID.unique()
+        self.data = self.data.set_index('SliceID')
 
     def __len__(self):
         return len(self.patients)
@@ -174,6 +174,9 @@ logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+trnmdf['SliceID'] = trnmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
+tstmdf['SliceID'] = tstmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
+
 '''
 mdf = pd.concat([trnmdf, tstmdf])
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
@@ -190,16 +193,16 @@ trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
 tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
-trnmdf = trnmdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-trnmdf['seq'] = (trnmdf.groupby(['PatientID']).cumcount() + 1)
-tstmdf['seq'] = (tstmdf.groupby(['PatientID']).cumcount() + 1)
-keepcols = ['PatientID', 'SOPInstanceUID', 'seq']
+trnmdf = trnmdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+tstmdf = tstmdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+trnmdf['seq'] = (trnmdf.groupby(['SliceID']).cumcount() + 1)
+tstmdf['seq'] = (tstmdf.groupby(['SliceID']).cumcount() + 1)
+keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'seq']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']
+trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
 
 
 # Load Data Frames
@@ -366,7 +369,7 @@ for epoch in range(EPOCHS):
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}deep_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}slice_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -382,10 +385,10 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}deep_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}slice_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstm{}deep_{}.bin'.format(LSTM_UNITS, embnm)
+    output_model_file = 'weights/model_lstm{}slice_{}.bin'.format(LSTM_UNITS, embnm)
     torch.save(model.state_dict(), output_model_file)
 

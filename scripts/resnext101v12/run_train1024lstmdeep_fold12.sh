@@ -1,11 +1,11 @@
 N_GPU=1
-WDIR='resnext101v11'
+WDIR='resnext101v12'
 FOLD=0
-SIZE='384'
+SIZE='480'
 
-for GEPOCH in  0 # 1 2 3 4 5 6   # 0 1 2 3 4 5 6 7 8
+for GEPOCH in  0 1 2 3 4   # 0 1 2 3 4 5 6 7 8
 do
-    for FOLD in 1 # 0 1 2
+    for FOLD in 0 # 0 1 2
     do
         bsub  -q lowpriority -gpu "num=$N_GPU:mode=exclusive_process" -app gpu -n =$N_GPU  -env LSB_CONTAINER_IMAGE=darraghdog/kaggle:apex_build \
             -m dbslp1830 -n 1 -R "span[ptile=4]" -o log_train_%J  sh -c "cd /share/dhanley2/rsna/scripts/$WDIR  && python3 trainlstmdeep.py  \
