@@ -3,7 +3,13 @@
 [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
 [Sponsored by RSNA](https://www.rsna.org/)   
    
-![Frontpage](https://www.researchgate.net/profile/Sandiya_Bindroo/publication/326537078/figure/fig1/AS:650818105663489@1532178536539/Magnetic-resonance-imaging-MRI-of-the-brain-showing-scattered-punctate-infarcts-in-the.png) . 
+![Frontpage](https://www.researchgate.net/profile/Sandiya_Bindroo/publication/326537078/figure/fig1/AS:650818105663489@1532178536539/Magnetic-resonance-imaging-MRI-of-the-brain-showing-scattered-punctate-infarcts-in-the.png).
+
+### Steps to reproduce submissions
+1. Download data to `/data` folder.   
+2. Create folds by executing `python eda/folds_v2.py`   
+3. Convert dicoms to jpeg by executing `eda/window_v1.py`   
+4.      
 
 #### Results
 
