@@ -86,6 +86,7 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+        patdelta = (patemb[1:]-patemb[:-1])
         ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
@@ -113,25 +114,6 @@ def predict(loader):
         images = imgdf.loc[embidx].Image.tolist() 
         imgls += images
     return np.concatenate(valls, 0), imgls
-
-def imagePosDelta(mdf):
-    # Get Lag for each of the images
-    poslabels = ['ImagePos1', 'ImagePos2', 'ImagePos3']
-    poslaglabels = ['{}_lag'.format(i) for i in poslabels]
-    mdf[poslaglabels] = mdf[poslabels] - mdf[poslabels].shift(1)
-    ix = mdf[['PatientID', 'ImagePos1', 'ImagePos2']].shift(1) != mdf[['PatientID', 'ImagePos1', 'ImagePos2']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos3_lag']] = 0
-    ix = mdf[['PatientID', 'ImagePos1']].shift(1) != mdf[['PatientID', 'ImagePos1']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos2_lag']] = 0
-    ix = mdf[['PatientID']].shift(1) != mdf[['PatientID']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos1_lag']] = 0
-    mdf['ImagePos3_lag'] += mdf[['ImagePos1_lag', 'ImagePos2_lag']].sum(1)
-    mdf['ImagePos2_lag'] += mdf[['ImagePos1_lag']].sum(1)
-    # Clip at a large value to cut extremes
-    mdf[poslaglabels] = mdf[poslaglabels].clip(0,100)
-    # Log the values
-    mdf[poslaglabels] = np.log(mdf[poslaglabels] + 1)
-    return mdf
 
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
@@ -174,14 +156,11 @@ tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
                 [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 trnmdf['seq'] = (trnmdf.groupby(['PatientID']).cumcount() + 1)
 tstmdf['seq'] = (tstmdf.groupby(['PatientID']).cumcount() + 1)
-trnmdf = imagePosDelta(trnmdf)
-tstmdf = imagePosDelta(tstmdf)
 
-
-keepcols = ['PatientID', 'SOPInstanceUID', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
+keepcols = ['PatientID', 'SOPInstanceUID', 'seq']#+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
+trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']#+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
 
 # Load Data Frames
 trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
@@ -227,9 +206,7 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
-        patslc = patdf.filter(like='_lag').values
         
-        patemb = np.concatenate((patemb, patslc), 1)
         ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
@@ -237,10 +214,23 @@ class IntracranialDataset(Dataset):
         else:      
             return {'emb': patemb, 'embidx' : ids}
 
-for b in valloader:
+for b in trnloader:
     break
 
 b['emb'].shape
+b['emb'][0].shape
+
+a = b['emb'][0][b['emb'][0].numpy().sum(1)>0]
+
+a.min()
+a.mean()
+pd.Series((a[1:]).numpy().flatten()).hist()
+
+pd.Series((a[1:]- a[:-1]).numpy().flatten()).hist()
+
+np.concatenate((padmat,( a[1:]- a[:-1]).numpy()),0).shape
+padmat = np.expand_dims(np.zeros(a.numpy().shape[1]), 0)
+
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):

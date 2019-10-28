@@ -21,6 +21,8 @@ from sklearn.metrics import log_loss
 from torch.utils.data import DataLoader
 
 pd.set_option('display.max_rows', 1000)
+pd.set_option('display.max_columns', 100)
+
 
 ROOT = '/Users/dhanley2/Documents/Personal/rsna'
 path_data = os.path.join(ROOT, 'data')
@@ -86,6 +88,7 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+        patdelta = (patemb[1:]-patemb[:-1])
         ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
@@ -113,25 +116,6 @@ def predict(loader):
         images = imgdf.loc[embidx].Image.tolist() 
         imgls += images
     return np.concatenate(valls, 0), imgls
-
-def imagePosDelta(mdf):
-    # Get Lag for each of the images
-    poslabels = ['ImagePos1', 'ImagePos2', 'ImagePos3']
-    poslaglabels = ['{}_lag'.format(i) for i in poslabels]
-    mdf[poslaglabels] = mdf[poslabels] - mdf[poslabels].shift(1)
-    ix = mdf[['PatientID', 'ImagePos1', 'ImagePos2']].shift(1) != mdf[['PatientID', 'ImagePos1', 'ImagePos2']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos3_lag']] = 0
-    ix = mdf[['PatientID', 'ImagePos1']].shift(1) != mdf[['PatientID', 'ImagePos1']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos2_lag']] = 0
-    ix = mdf[['PatientID']].shift(1) != mdf[['PatientID']]
-    mdf .loc[np.where(ix.sum(1)!=0)[0], ['ImagePos1_lag']] = 0
-    mdf['ImagePos3_lag'] += mdf[['ImagePos1_lag', 'ImagePos2_lag']].sum(1)
-    mdf['ImagePos2_lag'] += mdf[['ImagePos1_lag']].sum(1)
-    # Clip at a large value to cut extremes
-    mdf[poslaglabels] = mdf[poslaglabels].clip(0,100)
-    # Log the values
-    mdf[poslaglabels] = np.log(mdf[poslaglabels] + 1)
-    return mdf
 
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
@@ -163,25 +147,23 @@ def collatefn(batch):
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+trnmdf['SliceID'] = trnmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
+tstmdf['SliceID'] = tstmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
 tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
-trnmdf = trnmdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-tstmdf = tstmdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-trnmdf['seq'] = (trnmdf.groupby(['PatientID']).cumcount() + 1)
-tstmdf['seq'] = (tstmdf.groupby(['PatientID']).cumcount() + 1)
-trnmdf = imagePosDelta(trnmdf)
-tstmdf = imagePosDelta(tstmdf)
-
-
-keepcols = ['PatientID', 'SOPInstanceUID', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
+trnmdf = trnmdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+tstmdf = tstmdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+trnmdf['seq'] = (trnmdf.groupby(['SliceID']).cumcount() + 1)
+tstmdf['seq'] = (tstmdf.groupby(['SliceID']).cumcount() + 1)
+keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'seq']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'Image', 'seq']+['ImagePos1_lag', 'ImagePos2_lag', 'ImagePos3_lag']
+trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
 
 # Load Data Frames
 trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
@@ -202,6 +184,8 @@ print('Trn shape {} {}'.format(*trnemb.shape))
 print('Val shape {} {}'.format(*valemb.shape))
 print('Tst shape {} {}'.format(*tstemb.shape))
 
+trndf.PatientID.value_counts().hist(bins = 100)
+
 print('Create loaders...')
 trndataset = IntracranialDataset(trndf, trnemb, labels=True)
 trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=8, collate_fn=collatefn)
@@ -216,31 +200,38 @@ class IntracranialDataset(Dataset):
         self.data = df
         self.mat = mat
         self.labels = labels
-        self.patients = df.PatientID.unique()
-        self.data = self.data.set_index('PatientID')
+        self.patients = df.SliceID.unique()
+        self.data = self.data.set_index('SliceID')
 
     def __len__(self):
         return len(self.patients)
 
     def __getitem__(self, idx):
-        
+
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
-        patslc = patdf.filter(like='_lag').values
         
-        patemb = np.concatenate((patemb, patslc), 1)
+        patdelta = np.zeros(patemb.shape)
+        patdelta[1:] = patemb[1:]-patemb[:-1]
+        patemb = np.concatenate((patemb, patdelta), -1)
+        
         ids = torch.tensor(patdf['embidx'].values)
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
-            return {'emb': patemb, 'embidx' : ids, 'labels': labels}    
-        else:      
+            return {'emb': patemb, 'embidx' : ids, 'labels': labels}
+        else:
             return {'emb': patemb, 'embidx' : ids}
 
-for b in valloader:
-    break
+for b in trnloader:
+    a = b['emb']
+    print(a.shape)
+    
+    
+pd.Series(a[:,:,:2048].flatten()).hist()
+pd.Series(a[:,:,2048:].flatten()).hist()
 
-b['emb'].shape
+
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
@@ -278,6 +269,19 @@ device = 'cpu'
 model = model.to(device)
 plist = [{'params': model.parameters(), 'lr': lr}]
 optimizer = optim.Adam(plist, lr=lr)
+
+
+DECAY=0.01
+param_optimizer = list(model.named_parameters())
+no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+plist = [
+    {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': DECAY},
+    {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
+
+optimizer = optim.Adam(plist, lr=lr)
+
+
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 # baseline rmean : 0.06893
 # 2019-10-12 18:25:38,787 - SequenceLSTM - INFO - Epoch 0 logloss 0.06586674622676458
