@@ -9,9 +9,10 @@
 1. Download data to `/data` folder.   
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`   
-4. Run training of resenext101 for 3 folds by executing `sh scripts/resnext101v12/run_train480orig_fold012.sh`  - make sure all 3 folds `0 1 2` are uncommented and run.   
-5. Extract embeddings for each of these runs using `sh scripts/resnext101v12/run_emborig_fold12.sh`  - make sure all 3 folds `0 1 2` are uncommented and run.    
-6. 
+4. Run training of resenext101 for 3 folds by executing `sh scripts/resnext101v12/run_train480orig_fold012.sh`  - make sure all 3 folds `0 1 2` are uncommented and run. Train from epoch `0` to `5` inclusive.   
+5. Extract embeddings for each of these runs using `sh scripts/resnext101v12/run_emborig_fold12.sh`  - make sure all 3 folds `0 1 2` are uncommented and run. Extract embeddings for epoch `0` to `5` inclusive.      
+6. Train LSTM for fold `0 1 2` and global epoch `0` to `5` inclusive making the respective changes in here : `sh scripts/resnext101v12/run_train1024lstmdelta_fold12.sh`    
+7. Bag the results of all LSTM results and create submission using `eda/val_lstm_v10.py`. All folds and all global epoch must be included.  
 
 ### Results
 
