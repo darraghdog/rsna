@@ -51,6 +51,7 @@ parser.add_option('-j', '--lstm_units', action="store", dest="lstm_units", help=
 parser.add_option('-d', '--dropout', action="store", dest="dropout", help="LSTM input spatial dropout", default="0.3")
 parser.add_option('-z', '--decay', action="store", dest="decay", help="Weight Decay", default="0.0")
 parser.add_option('-m', '--lrgamma', action="store", dest="lrgamma", help="Scheduler Learning Rate Gamma", default="1.0")
+parser.add_option('-k', '--tta', action="store", dest="tta", help="Bag with horizontal flip on and off", default="F")
 
 
 options, args = parser.parse_args()
@@ -101,6 +102,7 @@ LOADCSV= options.loadcsv=='T'
 LSTM_UNITS=int(options.lstm_units)
 nbags=int(options.nbags)
 DROPOUT=float(options.dropout)
+TTA= options.tta=='T'
 n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
@@ -222,7 +224,6 @@ trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
 
 
 # Load Data Frames
-
 trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
@@ -254,9 +255,25 @@ if LOADCSV:
     np.savez_compressed(os.path.join(path_emb, 'tst_{}'.format(embnm)), tstemb)
 '''
 logger.info('Load npy..')
-trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-tstemb = np.load(os.path.join(path_emb, 'emb_tst_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+
+def loademb(TYPE, SIZE, fold, GLOBALEPOCH, TTA=''):
+    return np.load(os.path.join(path_emb, 'emb{}_{}_size{}_fold{}_ep{}.npz'.format(TTA, TYPE, SIZE, fold, GLOBALEPOCH)))['arr_0']
+
+trnemb = loademb('trn', SIZE, fold, GLOBALEPOCH)
+valemb = loademb('val', SIZE, fold, GLOBALEPOCH)
+tstemb = loademb('tst', SIZE, fold, GLOBALEPOCH)
+
+if TTA:
+    logger.info('Load hflip...')
+    trnemb = 0.5 * (trnemb + loademb('trn', SIZE, fold, GLOBALEPOCH, TTA='T'))
+    valemb = 0.5 * (valemb + loademb('val', SIZE, fold, GLOBALEPOCH, TTA='T'))
+    tstemb = 0.5 * (tstemb + loademb('tst', SIZE, fold, GLOBALEPOCH, TTA='T'))
+
+
+
+#trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+#valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+#tstemb = np.load(os.path.join(path_emb, 'emb_tst_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
 
 logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
