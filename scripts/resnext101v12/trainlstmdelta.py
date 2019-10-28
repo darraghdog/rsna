@@ -23,6 +23,8 @@ import ast
 from torch.utils.data import Dataset
 from sklearn.metrics import log_loss
 from torch.utils.data import DataLoader
+from scipy.ndimage import uniform_filter
+
 
 from apex.parallel import DistributedDataParallel as DDP
 from apex.fp16_utils import *
@@ -140,7 +142,16 @@ class IntracranialDataset(Dataset):
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
+
+        patdeltalag  = np.zeros(patemb.shape)
+        patdeltalead = np.zeros(patemb.shape)
+        patdeltalag [1:] = patemb[1:]-patemb[:-1]
+        patdeltalead[:-1] = patemb[:-1]-patemb[1:]
+
+        patemb = np.concatenate((patemb, patdeltalag, patdeltalead), -1)
+        
         ids = torch.tensor(patdf['embidx'].values)
+
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
             return {'emb': patemb, 'embidx' : ids, 'labels': labels}    
@@ -292,10 +303,10 @@ valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_w
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
-    def __init__(self, embed_size=trnemb.shape[-1], LSTM_UNITS=64, DO = 0.3):
+    def __init__(self, embed_size=trnemb.shape[-1]*3, LSTM_UNITS=64, DO = 0.3):
         super(NeuralNet, self).__init__()
         
-        self.embedding_dropout = SpatialDropout(DO)
+        self.embedding_dropout = SpatialDropout(0.0) #DO)
         
         self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
         self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
@@ -381,11 +392,12 @@ for epoch in range(EPOCHS):
     logger.info('Prep val score...')
     ypred, imgval = predict(valloader)
     ypredls.append(ypred)
+    
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}slice_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}delta_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -402,10 +414,10 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}slice_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
             index = False, compression = 'gzip')
     
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstm{}slice_{}.bin'.format(LSTM_UNITS, embnm)
+    output_model_file = 'weights/model_lstm{}delta_{}.bin'.format(LSTM_UNITS, embnm)
     torch.save(model.state_dict(), output_model_file)
 
