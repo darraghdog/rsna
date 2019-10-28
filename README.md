@@ -44,24 +44,3 @@
 | EfficientnetV0 |224       |4     |2X |None|0   |0.08267 |????  |With transpose augmentation      |
 | EfficientnetV0 |224       |2     |1X |None|0   |0.08519 |????  |With transpose augmentation      |
 | EfficientnetV0 |224       |11    |2X |None|0   |0.08607 |????  |With transpose augmentation      |
-
-#### Experiment Results
-1. Cropping image gives approx 0.04. 
-2. Mix up improves about 0.03 on EfficientnetV0, but obviously takes longer to converge. Convergence time on same model about 20 epochs instead of 5 without mixup. 
-3. Remove the transpose on augmentation converges faster only, slightly lower score. 
-4. Adding logged image sequence, concept to embedding layer, converges faster, no real improvement. 
-
-#### Experiments
-1. Best training augmentation so far (I think it just converges a bit faster, with transpose works a bit faster)... [linky](https://github.com/darraghdog/rsna/blob/a3a50331955be5f3443e548e692a29d041d24cfe/scripts/efficientnetb0v7/trainorig.py#L210)
-```
-transform_train = Compose([
-    HorizontalFlip(p=0.5),
-    ShiftScaleRotate(shift_limit=0.1, scale_limit=0.01, 
-                         rotate_limit=30, p=0.7, border_mode = cv2.BORDER_REPLICATE),
-    Transpose(0.5)
-    ToTensor()
-])
-```
-
-#### Does not work
-1. Downsampling patients with no conditions... Maybe need another go, on public scripts appears to help. 
