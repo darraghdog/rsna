@@ -74,7 +74,9 @@ parser.add_option('-g', '--logmsg', action="store", dest="logmsg", help="root di
 parser.add_option('-c', '--size', action="store", dest="size", help="model size", default="512")
 parser.add_option('-a', '--infer', action="store", dest="infer", help="root directory", default="TRN")
 parser.add_option('-z', '--wtsize', action="store", dest="wtsize", help="model size", default="999")
-parser.add_option('-m', '--hflip', action="store", dest="hflip", help="Embedding horizontal flip", default="F")
+parser.add_option('-m', '--hflip', action="store", dest="hflip", help="Augmentation - Embedding horizontal flip", default="F")
+parser.add_option('-d', '--transpose', action="store", dest="transpose", help="Augmentation - Embedding transpose", default="F")
+
 
 options, args = parser.parse_args()
 package_dir = options.rootpath
@@ -114,6 +116,7 @@ WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 INFER=options.infer
 HFLIP = 'T' if options.hflip=='T' else ''
+TRANSPOSE = 'P' if options.transpose=='T' else ''
 
 #classes = 1109
 device = 'cuda'
@@ -245,8 +248,10 @@ transform_train = Compose([
 ])
 
 HFLIPVAL = 1.0 if HFLIP == 'T' else 0.0
+TRANSPOSEVAL = 1.0 if TRANSPOSE == 'P' else 0.0
 transform_test= Compose([
     HorizontalFlip(p=HFLIPVAL),
+    Transpose(p=TRANSPOSEVAL),
     Normalize(mean=mean_img, std=std_img, max_pixel_value=255.0, p=1.0),
     ToTensor()
 ])
@@ -384,6 +389,6 @@ for epoch in range(n_epochs):
                 #logger.info('Final ls shape {}'.format(ls[-1].shape))
             outemb = np.concatenate(ls, 0).astype(np.float32)
             logger.info('Write embeddings : shape {} {}'.format(*outemb))
-            np.savez_compressed('emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP, typ, SIZE, fold, epoch), outemb)
-            dumpobj('loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP, typ, SIZE, fold, epoch), loader)
+            np.savez_compressed('emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), outemb)
+            dumpobj('loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), loader)
             gc.collect()

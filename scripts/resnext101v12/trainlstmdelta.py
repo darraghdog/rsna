@@ -102,7 +102,7 @@ LOADCSV= options.loadcsv=='T'
 LSTM_UNITS=int(options.lstm_units)
 nbags=int(options.nbags)
 DROPOUT=float(options.dropout)
-TTA= options.tta=='T'
+TTA= 'T' if options.tta=='T' else ''
 n_classes = 6
 label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid', 'subdural', 'any']
 
@@ -195,17 +195,6 @@ tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
 trnmdf['SliceID'] = trnmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 tstmdf['SliceID'] = tstmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 
-'''
-mdf = pd.concat([trnmdf, tstmdf])
-poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
-mdf[poscols] = pd.DataFrame(mdf['ImagePositionPatient']\
-              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
-mdf = mdf.sort_values(['PatientID']+poscols)\
-                [['PatientID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
-mdf['seq'] = mdf.groupby(['PatientID']).cumcount() + 1
-mdf.rename(columns={'SOPInstanceUID':'Image'}, inplace = True)
-mdf = mdf[['Image', 'seq', 'PatientID']]
-'''
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
@@ -228,11 +217,6 @@ trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SI
 valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 
-'''
-trndf = pd.read_csv(os.path.join(path_emb, 'trndf.csv.gz'))
-valdf = pd.read_csv(os.path.join(path_emb, 'valdf.csv.gz'))
-tstdf = pd.read_csv(os.path.join(path_emb, 'tstdf.csv.gz'))
-'''
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
@@ -243,17 +227,6 @@ tstdf = tstdf.merge(tstmdf, on = 'Image')
 # Load embeddings
 
 embnm='emb_sz256_wt256_fold{}_epoch{}'.format(fold, GLOBALEPOCH)
-'''
-if LOADCSV:
-    logger.info('Convert to npy..')
-    coltypes = dict((i, np.float32) for i in range(2048))
-    trnemb = pd.read_csv(os.path.join(path_emb, 'trn_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    valemb = pd.read_csv(os.path.join(path_emb, 'val_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    tstemb = pd.read_csv(os.path.join(path_emb, 'tst_{}.csv.gz'.format(embnm)), dtype = coltypes).values
-    np.savez_compressed(os.path.join(path_emb, 'trn_{}'.format(embnm)), trnemb)
-    np.savez_compressed(os.path.join(path_emb, 'val_{}'.format(embnm)), valemb)
-    np.savez_compressed(os.path.join(path_emb, 'tst_{}'.format(embnm)), tstemb)
-'''
 logger.info('Load npy..')
 
 def loademb(TYPE, SIZE, fold, GLOBALEPOCH, TTA=''):
@@ -263,18 +236,11 @@ trnemb = loademb('trn', SIZE, fold, GLOBALEPOCH)
 valemb = loademb('val', SIZE, fold, GLOBALEPOCH)
 tstemb = loademb('tst', SIZE, fold, GLOBALEPOCH)
 
-if TTA:
+if TTA=='T':
     logger.info('Load hflip...')
     trnemb = 0.5 * (trnemb + loademb('trn', SIZE, fold, GLOBALEPOCH, TTA='T'))
     valemb = 0.5 * (valemb + loademb('val', SIZE, fold, GLOBALEPOCH, TTA='T'))
     tstemb = 0.5 * (tstemb + loademb('tst', SIZE, fold, GLOBALEPOCH, TTA='T'))
-
-
-
-#trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-#valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-#tstemb = np.load(os.path.join(path_emb, 'emb_tst_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-
 logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
 logger.info('Tst shape {} {}'.format(*tstemb.shape))
@@ -414,7 +380,7 @@ for epoch in range(EPOCHS):
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv(os.path.join(path_emb, 'lstm{}delta_val_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    if epoch==EPOCHS-1: yvalout.to_csv('lstm/lstm{}{}delta_val_{}.csv.gz'.format(TTA, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -431,10 +397,12 @@ for epoch in range(EPOCHS):
     ypredtstls.append(ypred)
     ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
     ytstout = makeSub(ytstpred, imgtst)
-    if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    #        index = False, compression = 'gzip')
+    if epoch==EPOCHS-1: ytstout.to_csv('lstm/lstm{}{}delta_sub_{}.csv.gz'.format(TTA, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
-    
+ 
     logger.info('Output model...')
-    output_model_file = 'weights/model_lstm{}delta_{}.bin'.format(LSTM_UNITS, embnm)
-    torch.save(model.state_dict(), output_model_file)
+    output_model_file = 'weights/model_lstm{}{}delta_{}.bin'.format(TTA, LSTM_UNITS, embnm)
+    #torch.save(model.state_dict(), output_model_file)
 
