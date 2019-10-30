@@ -9,9 +9,9 @@
 1. Download data to `/data` folder.   
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`   
-4. Run training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v12/run_1final_train480orig_fold012.sh`.
-5. Extract embeddings for each of these runs (3 folds, 6 epochs) using `sh scripts/resnext101v12/run_2final_emborig_fold12.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.      
-6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3final_train_lstm_deltatta_fold12.sh`    
+4. Run training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.
+5. Extract embeddings for each of these runs (3 folds, 6 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.      
+6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3final_train_lstm_deltatta.sh`    
 7. Bag the results of all LSTM results and create submission using `eda/val_lstm_???.py`. Again, 3 folds 6 epochs, and then LSTM is bagged for the 9 epochs it runs.  
 
 ### Results
