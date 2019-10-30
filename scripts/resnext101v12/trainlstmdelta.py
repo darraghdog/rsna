@@ -396,7 +396,7 @@ for epoch in range(EPOCHS):
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv('lstmv02/lstm{}{}{}delta_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
+    if epoch==EPOCHS-1: yvalout.to_csv('lstmv03/lstm{}{}{}delta_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -415,7 +415,7 @@ for epoch in range(EPOCHS):
     ytstout = makeSub(ytstpred, imgtst)
     #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
     #        index = False, compression = 'gzip')
-    if epoch==EPOCHS-1: ytstout.to_csv('lstmv02/lstm{}{}{}delta_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
+    if epoch==EPOCHS-1: ytstout.to_csv('lstmv03/lstm{}{}{}delta_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
  
     logger.info('Output model...')
