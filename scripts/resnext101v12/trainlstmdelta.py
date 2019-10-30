@@ -6,7 +6,7 @@ Created on Wed Oct  2 20:53:27 2019
 @author: dhanley2
 """
 import numpy as np
-import csv, gzip, os, sys
+import csv, gzip, os, sys, gc
 import math
 import torch
 from torch import nn
