@@ -6,7 +6,7 @@
 ![Frontpage](https://www.researchgate.net/profile/Sandiya_Bindroo/publication/326537078/figure/fig1/AS:650818105663489@1532178536539/Magnetic-resonance-imaging-MRI-of-the-brain-showing-scattered-punctate-infarcts-in-the.png).
 
 ### Steps to reproduce submissions
-1. Download data to `/data` folder.   
+1. Download data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/).  
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`   
 4. Run training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.
