@@ -26,9 +26,9 @@ pd.set_option('display.max_columns', 100)
 
 ROOT = '/Users/dhanley2/Documents/Personal/rsna'
 path_data = os.path.join(ROOT, 'data')
-path_emb =  os.path.join(ROOT, 'eda/emb/resnext101v11')
+path_emb =  os.path.join(ROOT, 'eda/emb/resnext101v12fold0')
 n_classes = 6
-SIZE=384
+SIZE=480
 fold=0
 batch_size=4
 GLOBALEPOCH=0
@@ -160,15 +160,26 @@ tstmdf = tstmdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 trnmdf['seq'] = (trnmdf.groupby(['SliceID']).cumcount() + 1)
 tstmdf['seq'] = (tstmdf.groupby(['SliceID']).cumcount() + 1)
-keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'seq']
+keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'ImagePos3', 'seq']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
+trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image','ImagePos3', 'seq']
+
+trnmdf['ImagePos3_lag'] = (trnmdf['ImagePos3']-trnmdf['ImagePos3'].shift(1))
+trnmdf['ImagePos3_lag'][trnmdf['SliceID']!=trnmdf['SliceID'].shift(1)] = 0
+trnmdf['ImagePos3_lag'][trnmdf['SliceID']!=trnmdf['SliceID'].shift(1)] = 0
+
+trnmdf['ImagePos3_lag'].hist()
+
+trnmdf[['SliceID', 'ImagePos3', 'ImagePos3_lag']]
+
+(trnmdf['ImagePos3']-trnmdf['ImagePos3'].shift(1)).hist()
 
 # Load Data Frames
-trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
-valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
-tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
+SIZE, fold, GLOBALEPOCH
+trndf = loadobj(os.path.join(path_emb, 'loaderT_{}_size{}_fold{}_ep{}'.format('trn', SIZE, fold, GLOBALEPOCH))).dataset.data
+valdf = loadobj(os.path.join(path_emb, 'loaderT_{}_size{}_fold{}_ep{}'.format('val', SIZE, fold, GLOBALEPOCH))).dataset.data
+tstdf = loadobj(os.path.join(path_emb, 'loaderT_{}_size{}_fold{}_ep{}'.format('tst', SIZE, fold, GLOBALEPOCH))).dataset.data
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
@@ -176,9 +187,9 @@ trndf = trndf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 valdf = valdf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 tstdf = tstdf.merge(tstmdf, on = 'Image')
 
-trnemb = np.load(os.path.join(path_emb, 'emb_trn_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-valemb = np.load(os.path.join(path_emb, 'emb_val_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
-tstemb = np.load(os.path.join(path_emb, 'emb_tst_size{}_fold{}_ep{}.npz'.format(SIZE, fold, GLOBALEPOCH)))['arr_0']
+trnemb = np.load(os.path.join(path_emb, 'embT_{}_size{}_fold{}_ep{}.npz'.format('trn', SIZE, fold, GLOBALEPOCH)))['arr_0']
+valemb = np.load(os.path.join(path_emb, 'embT_{}_size{}_fold{}_ep{}.npz'.format('val', SIZE, fold, GLOBALEPOCH)))['arr_0']
+tstemb = np.load(os.path.join(path_emb, 'embT_{}_size{}_fold{}_ep{}.npz'.format('tst', SIZE, fold, GLOBALEPOCH)))['arr_0']
 
 print('Trn shape {} {}'.format(*trnemb.shape))
 print('Val shape {} {}'.format(*valemb.shape))
@@ -186,56 +197,138 @@ print('Tst shape {} {}'.format(*tstemb.shape))
 
 trndf.PatientID.value_counts().hist(bins = 100)
 
-print('Create loaders...')
-trndataset = IntracranialDataset(trndf, trnemb, labels=True)
-trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=8, collate_fn=collatefn)
 
-valdataset = IntracranialDataset(valdf, valemb, labels=False)
-tstdataset = IntracranialDataset(tstdf, tstemb, labels=False)
-tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
-valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
+patidx = trndf.set_index('PatientID')
+patients = trndf.SliceID.value_counts().index.tolist()
+patients.hist(bins = 100)
+
+patients.index.tolist()
+
+a = (np.random.rand(8,8)*100).astype(np.int32)
+
+a.astype(np.int32).shape
+moving_average(a, n=3).astype(np.int32).shape
+a.astype(np.int32)
+moving_average(a, n=3).astype(np.int32)
+
+def moving_average(a, n=3) :
+    mat = np.cumsum(a, axis = 1, dtype=float) 
+    mat[:,n:] = mat[:,n:] - np.cumsum(a[:,n:], axis = 1, dtype=float)
+    (mat/np.arange(1,mat.shape[0]+1).clip(0,n)[:, np.newaxis]).astype(np.int32)
+    
+    ret
+    
+    mat = np.cumsum(a, axis = 1, dtype=float).copy()
+    mat[:,n:] = ((ret[:, n:] - ret[:, :-n])/3).astype(np.int32)
+    return mat
+
+
 
 class IntracranialDataset(Dataset):
     def __init__(self, df, mat, labels=label_cols):
         self.data = df
         self.mat = mat
         self.labels = labels
-        self.patients = df.SliceID.unique()
+        # Sort patients randomly keeping batchsize the same
+        vc = df.SliceID.value_counts(ascending=True).index.tolist() # df.SliceID.unique()
+        sorta = np.array(range(vc.shape[0]//batch_size))#[:vc.shape[0]]
+        np.random.shuffle(sorta)
+        sorta = sorta.repeat(4)[:vc.shape[0]].tolist()
+        sorta += [max(sorta)+1]*(len(vc)-len(sorta))
+        self.patients = [p for _, p in sorted(zip(sorta, vc.index.tolist()))]
+        
         self.data = self.data.set_index('SliceID')
 
     def __len__(self):
         return len(self.patients)
 
     def __getitem__(self, idx):
-
         patidx = self.patients[idx]
         patdf = self.data.loc[patidx].sort_values('seq')
         patemb = self.mat[patdf['embidx'].values]
-        
-        patdelta = np.zeros(patemb.shape)
-        patdelta[1:] = patemb[1:]-patemb[:-1]
-        patemb = np.concatenate((patemb, patdelta), -1)
+
+        patdeltalag  = np.zeros(patemb.shape)
+        patdeltalead = np.zeros(patemb.shape)
+        patdeltalag [1:] = patemb[1:]-patemb[:-1]
+        patdeltalead[:-1] = patemb[:-1]-patemb[1:]
+
+        patemb = np.concatenate((patemb, patdeltalag, patdeltalead), -1)
         
         ids = torch.tensor(patdf['embidx'].values)
+
         if self.labels:
             labels = torch.tensor(patdf[label_cols].values)
-            return {'emb': patemb, 'embidx' : ids, 'labels': labels}
-        else:
+            return {'emb': patemb, 'embidx' : ids, 'labels': labels}    
+        else:      
             return {'emb': patemb, 'embidx' : ids}
 
-for b in trnloader:
-    a = b['emb']
+vc = trndf.SliceID.value_counts(ascending=True)
+
+import random
+sorta = np.array(range(vc.shape[0]//batch_size))#[:vc.shape[0]]
+np.random.shuffle(sorta)
+sorta = sorta.repeat(4)[:vc.shape[0]].tolist()
+sorta += [max(sorta)+1]*(len(vc)-len(sorta))
+patients = [p for _, p in sorted(zip(sorta, vc.index.tolist()))]
+
+patidx = patients[100]
+
+data = trndf.set_index('SliceID')
+
+trnmdfo = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
+trnmdfo
+poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
+trnmdfo[poscols] = pd.DataFrame(trnmdfo['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+trnmdfo = trnmdfo.sort_values(['PatientID']+poscols)
+exdf= trnmdfo[(trnmdfo.PatientID=='ID_97b28fdc') & \
+        (trnmdfo.SeriesInstanceUID=='ID_de1ad91510') & \
+        (trnmdfo.StudyInstanceUID=='ID_f38ff30736')]
+
+exdf['ImagePos3']-exdf['ImagePos3'].shift(1)
+
+
+
+
+
+data.loc[vc.index[-1]].sort_values('seq')#['any']
+
+data.loc[vc.index[-1]].sort_values('seq')['embidx']#.values
+
+patdf = data.loc[patidx].sort_values('seq')
+patemb = trnemb[patdf['embidx'].values]
+
+patemb.shape
+
+patemb.mean(0)
+
+(patemb-patemb.mean(axis=0, keepdims=True))[:3,:3]
+
+
+if random.randint(0,1)==0:
+    patdf['seq'] = patdf['seq'][::-1]
+    patdf = patdf.sort_values('seq').copy()
+
+
+print('Create loaders...')
+trndataset = IntracranialDataset(trndf, trnemb, labels=True)
+trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=False, num_workers=0, collate_fn=collatefn)
+
+valdataset = IntracranialDataset(valdf, valemb, labels=False)
+tstdataset = IntracranialDataset(tstdf, tstemb, labels=False)
+tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
+valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
+
+
+for batch in trnloader:
+    a = batch['emb']
     print(a.shape)
+    break
     
-    
-pd.Series(a[:,:,:2048].flatten()).hist()
-pd.Series(a[:,:,2048:].flatten()).hist()
-
-
-
+a.shape
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
-    def __init__(self, embed_size=trnemb.shape[-1]+3, LSTM_UNITS=64, DO = 0.3):
+    def __init__(self, embed_size=trnemb.shape[-1]*3, LSTM_UNITS=64, DO = 0.3):
         super(NeuralNet, self).__init__()
         
         self.embedding_dropout = SpatialDropout(DO)
@@ -300,16 +393,47 @@ for epoch in range(EPOCHS):
         y = batch['labels'].to(device, dtype=torch.float)
         mask = batch['mask'].to(device, dtype=torch.int)
         x = batch['emb'].to(device, dtype=torch.float)
-        x = torch.autograd.Variable(x, requires_grad=True)
-        y = torch.autograd.Variable(y)
-        logits = model(x).to(device, dtype=torch.float)
-        # get the mask for masked labels
-        maskidx = mask.view(-1)==1
-        # reshape for
-        y = y.view(-1, n_classes)[maskidx]
-        logits = logits.view(-1, n_classes)[maskidx]
-        # Get loss
-        loss = criterion(logits, y)
+        
+        r = np.random.rand(1)
+
+        if beta > 0 and r < cutmix_prob:
+            # generate mixed sample
+            lam = np.random.beta(beta, beta)
+            rand_index = torch.randperm(x.size()[0]).cuda()
+            target_a = y
+            target_b = y[rand_index]
+            mask_a = mask
+            mask_b = mask[rand_index]
+            # Mixup
+            x = lam * x + (1 - lam) * x[rand_index]
+            x = torch.autograd.Variable(x, requires_grad=True)
+            
+            target_a = torch.autograd.Variable(target_a)            
+            target_b = torch.autograd.Variable(target_b)  
+            # get the mask for masked labels
+            maskidx_a = mask_a.view(-1)==1   
+            maskidx_b = mask_b.view(-1)==1  
+            # reshape for
+            target_a = target_a.view(-1, n_classes)[maskidx_a]
+            target_b = target_b.view(-1, n_classes)[maskidx_b]
+
+            logits = model(x).to(device, dtype=torch.float)
+            logits_a = logits.view(-1, n_classes)[maskidx_a]          
+            logits_b = logits.view(-1, n_classes)[maskidx_b] 
+            # Get loss
+            loss = 0.5 * (criterion(logits_a, target_a) + criterion(logits_b, target_b))
+
+        else:
+            x = torch.autograd.Variable(x, requires_grad=True)
+            y = torch.autograd.Variable(y)
+            logits = model(x).to(device, dtype=torch.float)
+            # get the mask for masked labels
+            maskidx = mask.view(-1)==1
+            # reshape for
+            y = y.view(-1, n_classes)[maskidx]
+            logits = logits.view(-1, n_classes)[maskidx]
+            # Get loss
+            loss = criterion(logits, y)
         
         tr_loss += loss.item()
         optimizer.zero_grad()
