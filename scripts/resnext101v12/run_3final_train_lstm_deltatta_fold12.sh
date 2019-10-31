@@ -4,7 +4,7 @@ FOLD=0
 SIZE='480'
 GEPOCH=1
 
-for GEPOCH in  0 1 2 3 4 #  6  # 0 1 2 3 4 5 6 7 8
+for GEPOCH in 0 1 2 3 4 5
 do
     for FOLD in 0 1 2
     do
@@ -14,3 +14,4 @@ do
             --ttahflip T --ttatranspose T --lrgamma 0.95 --nbags 9 --globalepoch $GEPOCH  --loadcsv F --lstm_units 1024 --dropout 0.3 --size $SIZE"
     done
 done
+

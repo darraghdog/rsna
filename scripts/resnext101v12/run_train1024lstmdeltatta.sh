@@ -4,7 +4,7 @@ FOLD=0
 SIZE='480'
 GEPOCH=1
 
-for GEPOCH in  0 1 2 3 4 #  6  # 0 1 2 3 4 5 6 7 8
+for GEPOCH in  5 # 0 1 2 3 4 #  6  # 0 1 2 3 4 5 6 7 8
 do
     for FOLD in 0 1 2
     do

@@ -152,7 +152,9 @@ class IntracranialDataset(Dataset):
         patdeltalag [1:] = patemb[1:]-patemb[:-1]
         patdeltalead[:-1] = patemb[:-1]-patemb[1:]
 
-        patemb = np.concatenate((patemb, patdeltalag, patdeltalead), -1)
+        patnorm = patemb-patemb.mean(axis=0, keepdims=True)
+
+        patemb = np.concatenate((patemb, patdeltalag, patdeltalead, patnorm), -1)
         
         ids = torch.tensor(patdf['embidx'].values)
 
@@ -302,7 +304,7 @@ valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_w
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class NeuralNet(nn.Module):
-    def __init__(self, embed_size=trnemb.shape[-1]*3, LSTM_UNITS=64, DO = 0.3):
+    def __init__(self, embed_size=trnemb.shape[-1]*4, LSTM_UNITS=64, DO = 0.3):
         super(NeuralNet, self).__init__()
         
         self.embedding_dropout = SpatialDropout(0.0) #DO)
@@ -396,7 +398,7 @@ for epoch in range(EPOCHS):
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch==EPOCHS-1: yvalout.to_csv('lstmv03/lstm{}{}{}delta_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
+    if epoch==EPOCHS-1: yvalout.to_csv('lstmv05/lstm{}{}{}delta_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -415,7 +417,7 @@ for epoch in range(EPOCHS):
     ytstout = makeSub(ytstpred, imgtst)
     #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
     #        index = False, compression = 'gzip')
-    if epoch==EPOCHS-1: ytstout.to_csv('lstmv03/lstm{}{}{}delta_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
+    if epoch==EPOCHS-1: ytstout.to_csv('lstmv05/lstm{}{}{}delta_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm), \
             index = False, compression = 'gzip')
  
     logger.info('Output model...')

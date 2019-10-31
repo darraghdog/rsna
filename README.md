@@ -6,19 +6,20 @@
 ![Frontpage](https://www.researchgate.net/profile/Sandiya_Bindroo/publication/326537078/figure/fig1/AS:650818105663489@1532178536539/Magnetic-resonance-imaging-MRI-of-the-brain-showing-scattered-punctate-infarcts-in-the.png).
 
 ### Steps to reproduce submissions
-1. Download data to `/data` folder.   
+1. Download data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/).  
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`   
-4. Run training of resenext101 for 3 folds by executing `sh scripts/resnext101v12/run_train480orig_fold012.sh`  - make sure all 3 folds `0 1 2` are uncommented and run. Train from epoch `0` to `5` inclusive.   
-5. Extract embeddings for each of these runs using `sh scripts/resnext101v12/run_emborig_fold12.sh`  - make sure all 3 folds `0 1 2` are uncommented and run. Extract embeddings for epoch `0` to `5` inclusive.      
-6. Train LSTM for fold `0 1 2` and global epoch `0` to `5` inclusive making the respective changes in here : `sh scripts/resnext101v12/run_train1024lstmdelta_fold12.sh`    
-7. Bag the results of all LSTM results and create submission using `eda/val_lstm_v10.py`. All folds and all global epoch must be included.  
+4. Run training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.
+5. Extract embeddings for each of these runs (3 folds, 6 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.      
+6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3final_train_lstm_deltatta.sh`    
+7. Bag the results of all LSTM results and create submission using `eda/val_lstm_???.py`. Again, 3 folds 6 epochs, and then LSTM is bagged for the 9 epochs it runs.  
 
 ### Results
 
 | Model (`.scripts/` folder) |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
-| ResNeXt-101 32x8d (v12) with LSTM |480       |5     |9X |None|0 1 2   |0.05730 0.05899 0.05681 |0.057 | HFlip TTA on fold0 only, Concat delta to prev and delta to next, bag9 epochs, `scripts/resnextv12/trainlstmdelta.py`  & `eda/val_lstm_v11.py` , bsize 4 patients | 
+| ResNeXt-101 32x8d (v12) with LSTM |480       |6, 5, 5     |9X | all folds 0-hflip, 1 2 - transpose |0 1 2   |0.05725 0.05880 0.05669 |0.057 | , Concat delta, bag9 epochs, `scripts/resnextv12/trainlstmdelta.py`  & `eda/val_lstm_v12.py` , bsize 4 patients | 
+| ResNeXt-101 32x8d (v12) with LSTM |480       |5     |9X | HFlip TTA on fold0 only|0 1 2   |0.05730 0.05899 0.05681 |0.057 |Concat delta to prev and delta to next, bag9 epochs, `scripts/resnextv12/trainlstmdelta.py`  & `eda/val_lstm_v11.py` , bsize 4 patients | 
 | ResNeXt-101 32x8d (v12) with LSTM |480       |6     |5X |None|0   |0.0574 |0.059 | Concat delta to prev and delta to next, bag4 epochs, `scripts/resnextv12/trainlstmdelta.py`, bsize 4 patients | 
 | ResNeXt-101 32x8d (v11) with LSTM |384       |5, 5, 6     |5X |None|0, 1, 2   |0.05780, 0.05914, 0.05666 |0.059 | 2X LSTM 1024 hidden units, bag4 epochs, `scripts/resnextv11/trainlstmdeep.py` & `eda/val_lstm_v9.py`, bsize 4 patients | 
 | ResNeXt-101 32x8d (v12) with LSTM |480       |5     |5X |None|0   |0.05758 |0.059 | 2X LSTM 1024 hidden units, bag4 epochs, `scripts/resnextv12/trainlstmdeep.py`, bsize 4 patients | 
