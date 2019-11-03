@@ -65,11 +65,11 @@ ypredrmeanls = []
 for fold in [0]:
     yact = pd.read_csv(os.path.join(path, 'val_act_fold{}.csv.gz'.format(fold )))
     yactf = yact[label_cols].values.flatten()
-    for epoch in range(0, 9):
+    for epoch in range(0, 1):
         #ypred = pd.read_csv(os.path.join(path, 'seq/se50v3/val_pred_sz448_wt448_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         #ypred = pd.read_csv(os.path.join(path, '../../eda/seq/se100v1/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         #ypred = pd.read_csv(os.path.join(path, 'seq/v6/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
-        ypred = pd.read_csv(os.path.join(path, 'seq/v11/val_pred_sz384_wt384_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
+        ypred = pd.read_csv(os.path.join(path, 'seq/v13/val_pred_sz480_wt480_fold{}_epoch{}.csv.gz'.format(fold ,epoch)))
         ypred[['Image', 'PatientID']] =  yact[['Image', 'PatientID']]
         ypred = ypred.merge(trnmdf[['SOPInstanceUID', 'seq']], left_on='Image', right_on ='SOPInstanceUID', how='inner')
         ypred = ypred.sort_values(['PatientID', 'seq'])
