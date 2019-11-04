@@ -3,7 +3,7 @@
 [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
 [Sponsored by RSNA](https://www.rsna.org/)   
    
-![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif)
+![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif=400x600 )
 
 ### Steps to reproduce submissions
    
