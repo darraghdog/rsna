@@ -10,8 +10,7 @@ import cv2
 import pydicom
 from tqdm import tqdm
 from joblib import delayed, Parallel
-import zipfile
-from pydicom.filebase import DicomBytesIO
+
 
 def dumpobj(file, obj):
     with open(file, 'wb') as handle:
@@ -112,29 +111,6 @@ def autocrop(image, threshold=0):
     imageout[:image.shape[0], :image.shape[1],:] = image.copy()
     return imageout
 
-
-def generate_df(base, files):
-    train_di = {}
-
-    for filename in tqdm(files):
-        path = os.path.join( base ,  filename)
-        dcm = pydicom.dcmread(path)
-        all_keywords = dcm.dir()
-        ignored = ['Rows', 'Columns', 'PixelData']
-
-        for name in all_keywords:
-            if name in ignored:
-                continue
-
-            if name not in train_di:
-                train_di[name] = []
-
-            train_di[name].append(dcm[name].value)
-
-    df = pd.DataFrame(train_di)
-    
-    return df
-
 def convert_dicom_to_npz(imfile):
     try:
         imgnm = (imfile.split('/')[-1]).replace('.dcm', '')
@@ -161,35 +137,22 @@ def convert_dicom_to_jpg(name):
     except:
         print(name)
 
-
-
 path_img = '/Users/dhanley2/Documents/Personal/rsna/data/orig'
-BASE_PATH = path_img = '/root/data'
-TRAIN_DIR=os.path.join(path_img, 'stage_1_train_images')
-#TEST_DIR=os.path.join(path_img, 'stage_1_test_images')
-TEST_DIR=os.path.join(path_img, 'stage_2_test_images')
+path_img = '/root/data'
+imgnms = glob.glob(path_img+'/*.dcm')
+
 path_data = '/Users/dhanley2/Documents/Personal/rsna/data'
 path_data = '/root/data/rsna/data'
-path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
-path_proc = '/root/data/proc'
-
-print('Create test meta files')
-test_files = os.listdir(TEST_DIR)
-test_df = generate_df(TEST_DIR, test_files)
-test_df.to_csv(os.path.join(path_data, 'test_metadata.csv'))
-
-print('Create train meta files')
-train_files = os.listdir( TRAIN_DIR)
-train_df = generate_df(TRAIN_DIR, train_files)
-train_df.to_csv(os.path.join(path_data, 'train_metadata.csv'))
-
-'''
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
 mdf = pd.concat([trnmdf, tstmdf], 0)
+path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
+path_proc = '/root/data/proc'
 rescaledict = mdf.set_index('SOPInstanceUID')[['RescaleSlope', 'RescaleIntercept']].to_dict()
 
+import zipfile
+from pydicom.filebase import DicomBytesIO
 with zipfile.ZipFile(os.path.join(path_img, "rsna-intracranial-hemorrhage-detection.zip"), "r") as f:
     for t, name in enumerate(tqdm(f.namelist())):
         convert_dicom_to_jpg(name)
-'''
+

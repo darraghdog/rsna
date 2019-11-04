@@ -126,6 +126,7 @@ def convert_dicom_to_npz(imfile):
 def convert_dicom_to_jpg(name):
     try:
         data = f.read(name)
+        dirtype = 'train' if 'train' in name else 'test'
         imgnm = (name.split('/')[-1]).replace('.dcm', '')
         dicom = pydicom.dcmread(DicomBytesIO(data))
         image = dicom.pixel_array
@@ -133,18 +134,22 @@ def convert_dicom_to_jpg(name):
         image = apply_window_policy(image)
         image -= image.min((0,1))
         image = (255*image).astype(np.uint8)
-        cv2.imwrite(os.path.join(path_proc, imgnm)+'.jpg', image)
+        cv2.imwrite(os.path.join(path_proc, dirtype, imgnm)+'.jpg', image)
     except:
         print(name)
 
 path_img = '/Users/dhanley2/Documents/Personal/rsna/data/orig'
-imgnms = glob.glob(path_img+'/*.dcm')
-
+BASE_PATH = path_img = '/root/data'
+TRAIN_DIR=os.path.join(path_img, 'stage_1_train_images')
+TEST_DIR=os.path.join(path_img, 'stage_1_test_images')
 path_data = '/Users/dhanley2/Documents/Personal/rsna/data'
+path_data = '/root/data/rsna/data'
+path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
+path_proc = '/root/data/proc'
+
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
 mdf = pd.concat([trnmdf, tstmdf], 0)
-path_proc = '/Users/dhanley2/Documents/Personal/rsna/data/proc'
 rescaledict = mdf.set_index('SOPInstanceUID')[['RescaleSlope', 'RescaleIntercept']].to_dict()
 
 import zipfile
