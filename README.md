@@ -10,7 +10,11 @@
 Note: Run environment with Docker file `docker/RSNADOCKER.docker`.    
 Note: The scripts below were run on an LSF cluster. This can be run outside of LSF, however within the above docker env, by just running the shell command within the double quotes. For eaxample, instead of `bsub -app gpu -n =0  -env LSB_CONTAINER_IMAGE=darraghdog/kaggle:apex_build "cd /mydir  && python3 myscript.py"`, just run, `cd /mydir  && python3 myscript.py`.    
    
-1. Download data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/). We also attach for your convenince.     
+1.  
+    
+    A. Run script `download.sh` to download the data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/). We also attach for your convenince.  
+    B. This should also run a script `eda/window_meta2csv.py` to create meta data files. 
+    
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`. Before doing this point the variables, `path_img` where the dicom images are stored, `path_data` at the meta file directories and `path_proc` to the directory to store the images which will be loaded to the `trainorig` script.   
 
