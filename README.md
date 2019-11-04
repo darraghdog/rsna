@@ -19,9 +19,9 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
     A. Run training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
     B. Run again training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v13/run_1final_train480.sh`.   
 
-5.    
-
+5.
     A. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
+
     B. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v13/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
     
 6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalA_lstmdeltasum.sh` and `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
