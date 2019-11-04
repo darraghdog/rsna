@@ -4,7 +4,8 @@
 [Sponsored by RSNA](https://www.rsna.org/)   
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif)
-
+![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif)   
+   
 ### Steps to reproduce submissions
    
 Note: Run environment with Docker file `docker/RSNADOCKER.docker`.    
@@ -27,14 +28,14 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
 6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalA_lstmdeltasum.sh` and `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
 7. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalB_lstmdeltasum.sh` and  `sh scripts/resnext101v12/run_3final_lstmdeltasum.sh`.    
 
-8. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_short.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last LSTM file outputs.    
+8. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_short.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last LSTM file outputs. **submit2**      
 9. For blending results. 
 
     9.1. Run another LSTM using `LSTM_submit_05.py` via: `sh izuit/LSTM_submit_05_f0.sh`; `sh izuit/LSTM_submit_05_f0.sh` and `sh izuit/LSTM_submit_05_f0.sh`. 
 
     9.2. Bag results using `LSTM_submit_05_bagging.py`
 
-    9.3. Build final blend using `blend.ipynb` with alpha = .95 (best results for stage1 LB)
+    9.3. Build final blend using `blend.ipynb` with alpha = .95 (best results for stage1 LB) **submit1**   
 ### Results
 
 | Model (`.scripts/` folder) |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
