@@ -3,7 +3,7 @@
 [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
 [Sponsored by RSNA](https://www.rsna.org/)   
    
-![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif)![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif)   
+![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
    
 ### Steps to reproduce submissions
    
@@ -35,6 +35,7 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
     9.2. Bag results using `LSTM_submit_05_bagging.py`
 
     9.3. Build final blend using `blend.ipynb` with alpha = .95 (best results for stage1 LB) **submit1**   
+    
 ### Results
 
 | Model (`.scripts/` folder) |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
