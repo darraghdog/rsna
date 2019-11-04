@@ -14,17 +14,16 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
 2. Create folds by executing `python eda/folds_v2.py`   
 3. Convert dicoms to jpeg by executing `eda/window_v1.py`. Before doing this point the variables, `path_img` where the dicom images are stored, `path_data` at the meta file directories and `path_proc` to the directory to store the images which will be loaded to the `trainorig` script.   
     
-4A. Run training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
-4A. Run again training of resenext101 for 3 folds for 6 epochs by executing `sh scripts/resnext101v13/run_1final_train480.sh`.   
+4A. Run training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
+4A. Run again training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v13/run_1final_train480.sh`.   
     
-5A. Extract embeddings for each of these runs (3 folds, 6 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
-5B. Extract embeddings for each of these runs (3 folds, 6 epochs) using `sh scripts/resnext101v13/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
+5A. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
+5B. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v13/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
     
-6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalA_lstmdeltasum.sh` and `sh scripts/resnext101v13/run_3finalA_lstmdeltasum.sh`   
-6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalB_lstmdeltasum.sh` and  `sh scripts/resnext101v12/run_3finalB_lstmdeltasum.sh`.    
+6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalA_lstmdeltasum.sh` and `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
+6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalB_lstmdeltasum.sh` and  `sh scripts/resnext101v12/run_3final_lstmdeltasum.sh`.    
 
-
-7. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_shortA.py` and  `eda/val_lstm_shortB.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last file outputs.    
+7. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_short.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last file outputs.    
      
 This is done by changing the `fnamels` variables to loop over all the LSTM outputs. We also need to point the path_data to the output of the last script.     
 
