@@ -194,14 +194,18 @@ logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+trn2mdf = pd.read_csv(os.path.join(path_data, 'train_metadata2.csv'))
 tst2mdf = pd.read_csv(os.path.join(path_data, 'test_metadata2.csv'))
 
 trnmdf['SliceID'] = trnmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
+trn2mdf['SliceID'] = trn2mdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 tstmdf['SliceID'] = tstmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 tst2mdf['SliceID'] = tst2mdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+trn2mdf[poscols] = pd.DataFrame(trn2mdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
 tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
@@ -210,21 +214,25 @@ tst2mdf[poscols] = pd.DataFrame(tst2mdf['ImagePositionPatient']\
 
 trnmdf = trnmdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+trn2mdf = trn2mdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 tstmdf = tstmdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 tst2mdf = tst2mdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 
 trnmdf['seq'] = (trnmdf.groupby(['SliceID']).cumcount() + 1)
+trn2mdf['seq'] = (trn2mdf.groupby(['SliceID']).cumcount() + 1)
 tstmdf['seq'] = (tstmdf.groupby(['SliceID']).cumcount() + 1)
 tst2mdf['seq'] = (tst2mdf.groupby(['SliceID']).cumcount() + 1)
 
 keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'seq']
 trnmdf = trnmdf[keepcols]
+trn2mdf = trn2mdf[keepcols]
 tstmdf = tstmdf[keepcols]
 tst2mdf = tst2mdf[keepcols]
 
-trnmdf.columns = tstmdf.columns  = tst2mdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
+trnmdf.columns = trn2mdf.columns = tstmdf.columns  = tst2mdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
 
 
 # Load Data Frames
@@ -233,13 +241,19 @@ valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SI
 tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 tst2df = loadobj(os.path.join(path_emb, 'loader_tst2_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 
+# Add stg1 test labels to train
+trn2df = pd.read_csv( os.path.join(path_data, 'train2.csv.gz')  )
+tst1df = trn2df.set_index('Image').loc[tstdf.Image].reset_index()
+tst1df['fold'] = 5
+trndf = pd.concat([trndf, tst1df], 0)
+
 
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
 tst2df['embidx'] = range(tst2df.shape[0])
 
-trndf = trndf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
+trndf = trndf.merge(trn2mdf.drop('PatientID', 1), on = 'Image')
 valdf = valdf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 tstdf = tstdf.merge(tstmdf, on = 'Image')
 tst2df = tst2df.merge(tst2mdf, on = 'Image')
@@ -277,6 +291,13 @@ trnemb = sum(trnembls)/len(trnembls)
 valemb = sum(valembls)/len(valembls)
 tstemb = sum(tstembls)/len(tstembls)
 tst2emb = sum(tst2embls)/len(tst2embls)
+
+logger.info('Trn shape {} {}'.format(*trnemb.shape))
+logger.info('Val shape {} {}'.format(*valemb.shape))
+logger.info('Tst shape {} {}'.format(*tstemb.shape))
+logger.info('Tst shape {} {}'.format(*tst2emb.shape))
+# Add stg1 test labels to train
+trnemb = np.concatenate([trnemb, tstemb],0)
 
 del trnembls, valembls, tstembls, tst2embls
 gc.collect()
@@ -426,7 +447,7 @@ for epoch in range(EPOCHS):
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch>EPOCHS-8: yvalout.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+    if epoch>EPOCHS-8: yvalout.to_csv('lstmv11/lstm{}{}{}delta_epoch{}_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -445,7 +466,7 @@ for epoch in range(EPOCHS):
     ytstout = makeSub(ytstpred, imgtst)
     #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
     #        index = False, compression = 'gzip')
-    if epoch>EPOCHS-8: ytstout.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+    if epoch>EPOCHS-8: ytstout.to_csv('lstmv11/lstm{}{}{}delta_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
             index = False, compression = 'gzip')
  
     logger.info('Output model...')
@@ -459,7 +480,7 @@ for epoch in range(EPOCHS):
     ytst2out = makeSub(ytst2pred, imgtst2)
     #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
     #        index = False, compression = 'gzip')
-    if epoch>EPOCHS-8: ytst2out.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_tst2_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+    if epoch>EPOCHS-8: ytst2out.to_csv('lstmv11/lstm{}{}{}delta_epoch{}_tst2_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
             index = False, compression = 'gzip')
 
     logger.info('Output model...')
