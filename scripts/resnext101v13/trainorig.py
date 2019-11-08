@@ -76,6 +76,7 @@ parser.add_option('-a', '--infer', action="store", dest="infer", help="root dire
 parser.add_option('-z', '--wtsize', action="store", dest="wtsize", help="model size", default="999")
 parser.add_option('-m', '--hflip', action="store", dest="hflip", help="Augmentation - Embedding horizontal flip", default="F")
 parser.add_option('-d', '--transpose', action="store", dest="transpose", help="Augmentation - Embedding transpose", default="F")
+parser.add_option('-x', '--stage2', action="store", dest="stage2", help="Stage2 embeddings only", default="F")
 
 
 options, args = parser.parse_args()
@@ -117,6 +118,7 @@ fold = int(options.fold)
 INFER=options.infer
 HFLIP = 'T' if options.hflip=='T' else ''
 TRANSPOSE = 'P' if options.transpose=='T' else ''
+STAGE2=options.stage2=='T'
 
 #classes = 1109
 device = 'cuda'
@@ -224,6 +226,7 @@ label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid'
 
 train = pd.read_csv(os.path.join(path_data, 'train.csv.gz'))
 test = pd.read_csv(os.path.join(path_data, 'test.csv.gz'))
+if STAGE2: test2 = pd.read_csv(os.path.join(path_data, 'test2.csv.gz'))
 png = glob.glob(os.path.join(dir_train_img1, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
 png = np.array(png)
@@ -259,11 +262,14 @@ transform_test= Compose([
 trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_train, labels=True)
 valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
 tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
+tst2dataset = IntracranialDataset(test2, path=dir_test_img, transform=transform_test, labels=False)
 
 num_workers = 16
 trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+tst2loader = DataLoader(tst2dataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+
 
 model = torch.load(os.path.join(WORK_DIR, '../../checkpoints/resnext101_32x8d_wsl_checkpoint.pth'))
 model.fc = torch.nn.Linear(2048, n_classes)
@@ -369,14 +375,25 @@ for epoch in range(n_epochs):
         trndataset = IntracranialDataset(trndf, path=dir_train_img, transform=transform_test, labels=False)
         valdataset = IntracranialDataset(valdf, path=dir_train_img, transform=transform_test, labels=False)
         tstdataset = IntracranialDataset(test, path=dir_test_img, transform=transform_test, labels=False)
+        tst2dataset = IntracranialDataset(test2, path=dir_test_img, transform=transform_test, labels=False)
+
         trnloader = DataLoader(trndataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
         tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+        tst2loader = DataLoader(tst2dataset, batch_size=batch_size*4, shuffle=False, num_workers=num_workers)
+
         # Extract embedding layer
         model.module.fc = Identity()
         #model = torch.nn.DataParallel(model, device_ids=list(range(n_gpu)))
         model.eval()
-        for typ, loader in zip(['tst', 'val', 'trn'], [tstloader, valloader, trnloader]):
+        if STAGE2:
+            DATASETS = ['tst2']
+            LOADERS = [tst2loader]
+        else:
+            DATASETS = ['tst', 'val', 'trn']
+            LOADERS = [tstloader, valloader, trnloader]
+
+        for typ, loader in zip(DATASETS, LOADERS):
             ls = []
             for step, batch in enumerate(loader):
                 if step%1000==0:

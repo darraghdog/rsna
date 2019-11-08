@@ -194,40 +194,55 @@ logger.info('Cuda set up : time {}'.format(datetime.datetime.now().time()))
 # Get image sequences
 trnmdf = pd.read_csv(os.path.join(path_data, 'train_metadata.csv'))
 tstmdf = pd.read_csv(os.path.join(path_data, 'test_metadata.csv'))
+tst2mdf = pd.read_csv(os.path.join(path_data, 'test_metadata2.csv'))
+
 trnmdf['SliceID'] = trnmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 tstmdf['SliceID'] = tstmdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
+tst2mdf['SliceID'] = tst2mdf[['PatientID', 'SeriesInstanceUID', 'StudyInstanceUID']].apply(lambda x: '{}__{}__{}'.format(*x.tolist()), 1)
 
 poscols = ['ImagePos{}'.format(i) for i in range(1, 4)]
 trnmdf[poscols] = pd.DataFrame(trnmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
 tstmdf[poscols] = pd.DataFrame(tstmdf['ImagePositionPatient']\
               .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+tst2mdf[poscols] = pd.DataFrame(tst2mdf['ImagePositionPatient']\
+              .apply(lambda x: list(map(float, ast.literal_eval(x)))).tolist())
+
 trnmdf = trnmdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
 tstmdf = tstmdf.sort_values(['SliceID']+poscols)\
                 [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+tst2mdf = tst2mdf.sort_values(['SliceID']+poscols)\
+                [['PatientID', 'SliceID', 'SOPInstanceUID']+poscols].reset_index(drop=True)
+
 trnmdf['seq'] = (trnmdf.groupby(['SliceID']).cumcount() + 1)
 tstmdf['seq'] = (tstmdf.groupby(['SliceID']).cumcount() + 1)
+tst2mdf['seq'] = (tst2mdf.groupby(['SliceID']).cumcount() + 1)
+
 keepcols = ['PatientID', 'SliceID', 'SOPInstanceUID', 'seq']
 trnmdf = trnmdf[keepcols]
 tstmdf = tstmdf[keepcols]
-trnmdf.columns = tstmdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
+tst2mdf = tst2mdf[keepcols]
 
+trnmdf.columns = tstmdf.columns = tst2mdf.columns = ['PatientID', 'SliceID', 'Image', 'seq']
 
 # Load Data Frames
 trndf = loadobj(os.path.join(path_emb, 'loader_trn_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 valdf = loadobj(os.path.join(path_emb, 'loader_val_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 tstdf = loadobj(os.path.join(path_emb, 'loader_tst_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
+tst2df = loadobj(os.path.join(path_emb, 'loader_tst2_size{}_fold{}_ep{}'.format(SIZE, fold, GLOBALEPOCH))).dataset.data
 
 trndf['embidx'] = range(trndf.shape[0])
 valdf['embidx'] = range(valdf.shape[0])
 tstdf['embidx'] = range(tstdf.shape[0])
+tst2df['embidx'] = range(tst2df.shape[0])
+
 trndf = trndf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 valdf = valdf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 tstdf = tstdf.merge(tstmdf, on = 'Image')
+tst2df = tst2df.merge(tst2mdf, on = 'Image')
 
 # Load embeddings
-
 embnm='emb_sz256_wt256_fold{}_epoch{}'.format(fold, GLOBALEPOCH)
 logger.info('Load npy..')
 
@@ -238,29 +253,34 @@ logger.info('Load embeddings...')
 trnembls = [loademb('trn', SIZE, fold, GLOBALEPOCH)]
 valembls = [loademb('val', SIZE, fold, GLOBALEPOCH)]
 tstembls = [loademb('tst', SIZE, fold, GLOBALEPOCH)]
+tst2embls = [loademb('tst2', SIZE, fold, GLOBALEPOCH)]
 
 if TTAHFLIP=='T':
     logger.info('Load hflip...')
     trnembls.append(loademb('trn', SIZE, fold, GLOBALEPOCH, TTA='T'))
     valembls.append(loademb('val', SIZE, fold, GLOBALEPOCH, TTA='T'))
     tstembls.append(loademb('tst', SIZE, fold, GLOBALEPOCH, TTA='T'))
+    tst2embls.append(loademb('tst2', SIZE, fold, GLOBALEPOCH, TTA='T'))
+
 if TTATRANSPOSE=='P':
     logger.info('Load transpose...')
     trnembls.append(loademb('trn', SIZE, fold, GLOBALEPOCH, TTA='P'))
     valembls.append(loademb('val', SIZE, fold, GLOBALEPOCH, TTA='P'))
     tstembls.append(loademb('tst', SIZE, fold, GLOBALEPOCH, TTA='P'))
+    tst2embls.append(loademb('tst2', SIZE, fold, GLOBALEPOCH, TTA='P'))
 
 trnemb = sum(trnembls)/len(trnembls)
 valemb = sum(valembls)/len(valembls)
 tstemb = sum(tstembls)/len(tstembls)
+tst2emb = sum(tst2embls)/len(tst2embls)
 
-del trnembls, valembls, tstembls
+del trnembls, valembls, tstembls, tst2embls
 gc.collect()
 
 logger.info('Trn shape {} {}'.format(*trnemb.shape))
 logger.info('Val shape {} {}'.format(*valemb.shape))
 logger.info('Tst shape {} {}'.format(*tstemb.shape))
-
+logger.info('Tst shape {} {}'.format(*tst2emb.shape))
 
 # a simple custom collate function, just to show the idea
 def collatefn(batch):
@@ -295,9 +315,11 @@ trnloader = DataLoader(trndataset, batch_size=batch_size, shuffle=True, num_work
 
 valdataset = IntracranialDataset(valdf, valemb, labels=False)
 tstdataset = IntracranialDataset(tstdf, tstemb, labels=False)
+tst2dataset = IntracranialDataset(tst2df, tst2emb, labels=False)
+
 tstloader = DataLoader(tstdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
 valloader = DataLoader(valdataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
-
+tst2loader = DataLoader(tst2dataset, batch_size=batch_size*4, shuffle=False, num_workers=8, collate_fn=collatefn)
 
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
@@ -355,6 +377,7 @@ model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 
 ypredls = []
 ypredtstls = []
+ypredtst2ls = []
 
 for epoch in range(EPOCHS):
     tr_loss = 0.
@@ -398,7 +421,7 @@ for epoch in range(EPOCHS):
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
 
-    if epoch>EPOCHS-8: yvalout.to_csv('lstmv07/lstm{}{}{}delta_epoch{}_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+    if epoch>EPOCHS-8: yvalout.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_val_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
             index = False, compression = 'gzip')
     
     # get Val score
@@ -417,9 +440,21 @@ for epoch in range(EPOCHS):
     ytstout = makeSub(ytstpred, imgtst)
     #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
     #        index = False, compression = 'gzip')
-    if epoch>EPOCHS-8: ytstout.to_csv('lstmv07/lstm{}{}{}delta_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+    if epoch>EPOCHS-8: ytstout.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
             index = False, compression = 'gzip')
- 
+
+
+    logger.info('Prep test sub...')
+    ypred, imgtst2 = predict(tst2loader)
+    ypredtst2ls.append(ypred)
+    ytst2pred = sum(ypredtst2ls[-nbags:])/len(ypredtst2ls[-nbags:])
+    ytst2out = makeSub(ytst2pred, imgtst2)
+    #if epoch==EPOCHS-1: ytstout.to_csv(os.path.join(path_emb, 'lstm{}delta_sub_{}.csv.gz'.format(LSTM_UNITS, embnm)), \
+    #        index = False, compression = 'gzip')
+    if epoch>EPOCHS-8: ytst2out.to_csv('lstmv10/lstm{}{}{}delta_epoch{}_tst2_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+            index = False, compression = 'gzip')
+
+
     logger.info('Output model...')
     output_model_file = 'weights/model_lstm{}{}{}delta_{}.bin'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, embnm)
     #torch.save(model.state_dict(), output_model_file)
