@@ -10,6 +10,9 @@
 Note: Run environment with Docker file `docker/RSNADOCKER.docker`.    
 Note: The scripts below were run on an LSF cluster. This can be run outside of LSF, however within the above docker env, by just running the shell command within the double quotes. For eaxample, instead of `bsub -app gpu -n =0  -env LSB_CONTAINER_IMAGE=darraghdog/kaggle:apex_build "cd /mydir  && python3 myscript.py"`, just run, `cd /mydir  && python3 myscript.py`.    
    
+![Alt text](rsna_nobrainer.png?raw=true "Title")
+
+   
 1.  
     
     A. Run script `download.sh` to download the data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/). We also attach for your convenince.  
