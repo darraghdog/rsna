@@ -28,8 +28,8 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
 
     B. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v13/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
     
-6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalA_lstmdeltasum.sh` and `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
-7. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3finalB_lstmdeltasum.sh` and  `sh scripts/resnext101v12/run_3final_lstmdeltasum.sh`.    
+6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
+7. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3final_lstmdeltasum.sh`.    
 
 8. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_short.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last LSTM file outputs. **submit2**      
 9. For blending results. 
