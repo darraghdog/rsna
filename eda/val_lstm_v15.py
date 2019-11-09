@@ -48,6 +48,7 @@ def makeSub(ypred, imgs):
     subdf = pd.DataFrame({'ID' : yidx, 'Label': ypred.flatten()})
     return subdf
 
+
 epoch=10
 for LSTM_UNITS in ['2048']:
     for FOLD,START,BAG,TTA in zip([0,1,2],[0]*3,[5]*3,['TP']*3):
