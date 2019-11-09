@@ -42,10 +42,11 @@ Note: The scripts below were run on an LSF cluster. This can be run outside of L
     
 ### Results Stage 2
 
-| Model (`.scripts/` folder) |Image Size|LSTM Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
+| Model (`.scripts/` folder) |Image Size|LSTM Epochs|Bag|TTA |Fold|Val     |Stg1 Test |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
-| ResNeXt-101 32x8d (v12&v13) with LSTM |480       |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05654, 0.05807, 0.05604, 0.05648, 0.05775, 0.05534 |0.654 | Incl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v22.py` |
-| ResNeXt-101 32x8d (v12&v13) with LSTM |480       |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05699, 0.05866, 0.05642, 0.05696, 0.05844, 0.05588 |0.675 | Excl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v21.py` |
+| ResNeXt-101 32x8d (v12&v13) with LSTM |480       |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05654, 0.05807, 0.05604, 0.05648, 0.05775, 0.05534 |0.4544 |0.654 | Incl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v22.py` |
+| ResNeXt-101 32x8d (v12&v13) with LSTM |480       |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05699, 0.05866, 0.05642, 0.05696, 0.05844, 0.05588 |0.5703 |0.675 | Excl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v21.py` |
+| ResNeXt-101 32x8d (v12&v13) with LSTM |480       |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05699, 0.05866, 0.05642 |0.5706 |0.713 | Excl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v20.py` |
     
 ### Results Stage 1
 
