@@ -4,6 +4,37 @@
 [Sponsored by RSNA](https://www.rsna.org/)   
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
+
+### Overview    
+ 
+In general we just have a single image classifier, data split on 5 folds, we only trained on 3 of them, and then extracted pre-logit layer from the classifier and fed into an LSTM.
+Classifier trained on 5 epochs each fold, 480 images with below pre-processing. Each epoch, each fold, we extract embedding layer (use TTA and avg embeddings) train a separate LSTM for 12 epochs on each of those - so 15 LSTMs (3 fold image models X 5 epochs), and average the predictions. 
+Was a bit concerned the preprocessing filter may lose information, so trained the above again without the preprocessing filter and it did worse; but averaging both pipelines did ever so slightly better. The pipeline from first paragraph above would, for all intensive purposes be just as good as final solution, but as we needed to fix docu pre-stage 2 the two pipelines are in github and final solution.  
+
+**Preprocessing:**
+- Used Appian’s windowing from dicom images. [linky](https://github.com/darraghdog/rsna/blob/master/eda/window_v1_test.py#L66)
+- Cut any black space. There were then headrest or machine artifacts in the image making the head much smaller than it could be - see visual above. These were generally thin lines, so used scipy.ndimage minimum_filter to try to wipe those thin lines. [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainorig.py#L159)
+- Albumentations as mentioned in visual above. 
+
+**Image classifier**
+- Resnext101 - did not spend a whole lot of time here as it ran so long. But tested SeResenext and Efficitentnetv0 and they did not work as well. 
+- Extract pre logit layer at inference time  [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainorig.py#L387) 
+
+**Create Sequences**
+- Extract metadata from dicoms :  [linky](https://github.com/darraghdog/rsna/blob/master/eda/meta_eda_v1.py) 
+- Sequence images on Patient, Study and Series - most sequences were between 24 and 60 images in length.  [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L200) 
+
+**LSTM**
+- Feed in the embeddings in sequence on above key - Patient, Study and Series - also concat on the `current-previous` embedding and `current-next` embedding to give the model knowledge of changes around the image.  [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L133) 
+- LSTM architecture lifted from the winners of first stage toxic competition. This is a beast - only improvements came from making the hiddens layers larger. Oh, we added on the embeddings to the lstm output and this helped a bit also.  [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L352) 
+- For sequences of different length, padded them to same length, made a dummy embedding of zeros, and then through the results of this away before calculating loss and saving the predictions.  
+
+**What did not help...**
+Too long to do justice... mixup on image, mixup on embedding, augmentatons on sequences (partial sequences, reversed sequences), cnn (although SeuTao got it working)
+
+**Given more time**
+Make the classifier and the lstm model single end-to-end model. 
+Train all on stage2 data, we only got to train two folds of the image model on stage-2 data
    
 ### Steps to reproduce submissions
    
