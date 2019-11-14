@@ -11,6 +11,8 @@ In general we just have a single image classifier, data split on 5 folds, we onl
 Classifier trained on 5 epochs each fold, 480 images with below pre-processing. Each epoch, each fold, we extract embedding layer (use TTA and avg embeddings) train a separate LSTM for 12 epochs on each of those - so 15 LSTMs (3 fold image models X 5 epochs), and average the predictions. 
 Was a bit concerned the preprocessing filter may lose information, so trained the above again without the preprocessing filter and it did worse; but averaging both pipelines did ever so slightly better. The pipeline from first paragraph above would, for all intensive purposes be just as good as final solution, but as we needed to fix docu pre-stage 2 the two pipelines are in github and final solution.  
 
+![Alt text](rsna_nobrainer.png?raw=true "Title")
+
 **Preprocessing:**
 - Used Appian’s windowing from dicom images. [linky](https://github.com/darraghdog/rsna/blob/master/eda/window_v1_test.py#L66)
 - Cut any black space. There were then headrest or machine artifacts in the image making the head much smaller than it could be - see visual above. These were generally thin lines, so used scipy.ndimage minimum_filter to try to wipe those thin lines. [linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainorig.py#L159)
@@ -40,8 +42,6 @@ Train all on stage2 data, we only got to train two folds of the image model on s
    
 Note: Run environment with Docker file `docker/RSNADOCKER.docker`.    
 Note: The scripts below were run on an LSF cluster. This can be run outside of LSF, however within the above docker env, by just running the shell command within the double quotes. For eaxample, instead of `bsub -app gpu -n =0  -env LSB_CONTAINER_IMAGE=darraghdog/kaggle:apex_build "cd /mydir  && python3 myscript.py"`, just run, `cd /mydir  && python3 myscript.py`.    
-   
-![Alt text](rsna_nobrainer.png?raw=true "Title")
 
    
 1.  
