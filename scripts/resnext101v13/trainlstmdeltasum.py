@@ -54,18 +54,11 @@ parser.add_option('-m', '--lrgamma', action="store", dest="lrgamma", help="Sched
 parser.add_option('-k', '--ttahflip', action="store", dest="ttahflip", help="Bag with horizontal flip on and off", default="F")
 parser.add_option('-q', '--ttatranspose', action="store", dest="ttatranspose", help="Bag with horizontal flip on and off", default="F")
 
-
 options, args = parser.parse_args()
 package_dir = options.rootpath
 sys.path.append(package_dir)
-from logs import get_logger
-from utils import dumpobj, loadobj, GradualWarmupScheduler
-
-options, args = parser.parse_args()
-package_dir = options.rootpath
-sys.path.append(package_dir)
-from logs import get_logger
-from utils import dumpobj, loadobj, GradualWarmupScheduler
+from scripts.logs import get_logger
+from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
 
 
 # Print info about environments

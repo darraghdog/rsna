@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Oct  2 20:53:27 2019
-
-@author: dhanley2
-"""
 import numpy as np
 import csv, gzip, os, sys, gc
 import math
@@ -58,15 +51,8 @@ parser.add_option('-q', '--ttatranspose', action="store", dest="ttatranspose", h
 options, args = parser.parse_args()
 package_dir = options.rootpath
 sys.path.append(package_dir)
-from logs import get_logger
-from utils import dumpobj, loadobj, GradualWarmupScheduler
-
-options, args = parser.parse_args()
-package_dir = options.rootpath
-sys.path.append(package_dir)
-from logs import get_logger
-from utils import dumpobj, loadobj, GradualWarmupScheduler
-
+from script.logs import get_logger
+from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
 
 # Print info about environments
 logger = get_logger(options.logmsg, 'INFO') # noqa

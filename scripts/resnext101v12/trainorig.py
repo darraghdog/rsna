@@ -82,8 +82,8 @@ parser.add_option('-x', '--stage2', action="store", dest="stage2", help="Stage2 
 options, args = parser.parse_args()
 package_dir = options.rootpath
 sys.path.append(package_dir)
-from logs import get_logger
-from utils import dumpobj, loadobj, GradualWarmupScheduler
+from scripts.logs import get_logger
+from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
 
 
 # Print info about environments
