@@ -1,9 +1,0 @@
-# docker run --runtime=nvidia --ipc=host --rm -v /data:/data -p 8899:8888 -d lab07
-
-
-FROM nvcr.io/nvidia/pytorch:19.09-py3
-
-RUN pip install albumentations
-RUN pip install pretrainedmodels
-
-
