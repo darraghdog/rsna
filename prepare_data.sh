@@ -7,6 +7,8 @@ CLEAN_DATA_DIR=$ROOT/data
 # Create directory structures
 mkdir -p $RAW_DATA_DIR
 mkdir $ROOT/checkpoints
+mkdir -p $RAW_DATA_DIR/scripts/resnext101v12/weights
+mkdir -p $RAW_DATA_DIR/scripts/resnext101v13/weights
 
 # Download competition data
 cd $RAW_DATA_DIR
