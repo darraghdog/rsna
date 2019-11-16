@@ -14,6 +14,10 @@ kaggle competitions download -c rsna-intracranial-hemorrhage-detection
 unzip rsna-intracranial-hemorrhage-detection
 cd $ROOT
 
+# Copy csv files to data directory
+cp $RAW_DATA_DIR/*.csv* CLEAN_DATA_DIR/
+unzip CLEAN_DATA_DIR/*.csv*
+
 # Prepare images and metadata
-python rsna/eda/window_meta2csv.py
-python rsna/eda/window_v1.py 
+python scripts/prepare_meta_dicom.py
+python scripts/prepare_folds.py
