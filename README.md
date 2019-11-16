@@ -1,7 +1,7 @@
 ### RSNA Intracranial Hemorrhage Detection
   
-[Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
-[Sponsored by RSNA](https://www.rsna.org/)   
+#### [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
+#### [Sponsored by RSNA](https://www.rsna.org/)   
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
 
@@ -11,7 +11,7 @@ In general we just have a single image classifier, data split on 5 folds, we onl
 Classifier trained on 5 epochs each fold, 480 images with below pre-processing. Each epoch, each fold, we extract embedding layer (use TTA and avg embeddings) train a separate LSTM for 12 epochs on each of those - so 15 LSTMs (3 fold image models X 5 epochs), and average the predictions. 
 Was a bit concerned the preprocessing filter may lose information, so trained the above again without the preprocessing filter and it did worse; but averaging both pipelines did ever so slightly better. The pipeline from first paragraph above would, for all intensive purposes be just as good as final solution, but as we needed to fix docu pre-stage 2 the two pipelines are in github and final solution.  
 
-![Alt text](rsna_nobrainer.png?raw=true "Title")
+![Alt text](documentation/rsna_nobrainer.png?raw=true "Title")
 
 **Preprocessing:**
 - Used Appian’s windowing from dicom images. [Linky](https://github.com/darraghdog/rsna/blob/master/eda/window_v1_test.py#L66)
