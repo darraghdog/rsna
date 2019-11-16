@@ -40,18 +40,11 @@ Train all on stage2 data, we only got to train two folds of the image model on s
    
 ### Steps to reproduce submissions
    
-Note: Run environment with Docker file `docker/RSNADOCKER.docker`.    
-Note: The scripts below were run on an LSF cluster. This can be run outside of LSF, however within the above docker env, by just running the shell command within the double quotes. For eaxample, instead of `bsub -app gpu -n =0  -env LSB_CONTAINER_IMAGE=darraghdog/kaggle:apex_build "cd /mydir  && python3 myscript.py"`, just run, `cd /mydir  && python3 myscript.py`.    
-
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.    
    
-1.  
-    
-    A. Run script `download.sh` to download the data to `/data` folder. For pretrained image weights we use `torchvision.models.resnet` and the checkpoint `resnext101_32x8d_wsl_checkpoint.pth`, taken from [here](https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/). We also attach for your convenince.  
-    B. This should also run a script `eda/window_meta2csv.py` to create meta data files. 
-    
-2. Create folds by executing `python eda/folds_v2.py`   
-3. Convert dicoms to jpeg by executing `eda/window_v1.py`. Before doing this point the variables, `path_img` where the dicom images are stored, `path_data` at the meta file directories and `path_proc` to the directory to store the images which will be loaded to the `trainorig` script.   
-
+1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
+2.  Run scripts `sh prepare_data.sh`
+  
 4. 
     
     A. Run training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
