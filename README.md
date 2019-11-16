@@ -43,8 +43,9 @@ Train all on stage2 data, we only got to train two folds of the image model on s
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.    
    
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
-2.  Run scripts `sh prepare_data.sh`
-  
+2.  Run script `sh prepare_data.sh` to prepare the meta data and perform image windowing.
+3.  Run script `sh run_train_img.sh` to train the image pipeline.
+   
 4. 
     
     A. Run training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
