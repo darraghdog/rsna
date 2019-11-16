@@ -3,12 +3,19 @@
 ROOT='/mnt/lsf/share/dhanley2/rsna'
 RAW_DATA_DIR=$ROOT/data/raw
 CLEAN_DATA_DIR=$ROOT/data
+CKPTDIR=$ROOT/checkpoints
+
 
 # Create directory structures
 mkdir -p $RAW_DATA_DIR
 mkdir $ROOT/checkpoints
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v12/weights
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v13/weights
+
+# Download checkpoint
+cd $CKPTDIR
+wget https://pytorch.org/hub/facebookresearch_WSL-Images_resnext/
+cd $ROOT
 
 # Download competition data
 cd $RAW_DATA_DIR
