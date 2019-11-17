@@ -39,6 +39,7 @@ Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` dir
     a) expect this to run about 10 days on a single node   
     b) trains all models from scratch   
     c) makes full bagged submission prediction.
+Note: each time you run/rerun one of the above, you should ensure the `/preds` directory is empty.
    
 #### 2. Retrain single model
 
