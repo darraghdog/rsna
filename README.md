@@ -40,7 +40,7 @@ Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` dir
     b) trains all models from scratch   
     c) makes full bagged submission prediction.
    
-### 2. Retrain single model
+#### 2. Retrain single model
 
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 
