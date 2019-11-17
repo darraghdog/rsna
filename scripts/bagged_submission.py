@@ -14,4 +14,4 @@ ylstmsub = ylstmsub.clip(0.00001, 0.99999)
 
 #ylstmsub.Label[ylstmsub.Label>0.03].hist(bins=100)
 print('Create submission')
-ylstmsub.to_csv('preds/full_run___submit_me.csv.gz', compression = 'gzip')
+ylstmsub.to_csv('submission.csv.gz', compression = 'gzip')

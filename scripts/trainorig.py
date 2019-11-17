@@ -84,8 +84,9 @@ parser.add_option('-y', '--autocrop', action="store", dest="autocrop", help="Aut
 options, args = parser.parse_args()
 package_dir = options.rootpath
 sys.path.append(package_dir)
-from scripts.logs import get_logger
-from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
+sys.path.insert(0, 'scripts')
+from logs import get_logger
+from utils import dumpobj, loadobj, GradualWarmupScheduler
 
 
 # Print info about environments

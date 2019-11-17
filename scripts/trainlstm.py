@@ -51,8 +51,9 @@ parser.add_option('-q', '--ttatranspose', action="store", dest="ttatranspose", h
 options, args = parser.parse_args()
 package_dir = options.rootpath
 sys.path.append(package_dir)
-from script.logs import get_logger
-from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
+sys.path.insert(0, 'scripts')
+from logs import get_logger
+from utils import dumpobj, loadobj, GradualWarmupScheduler
 
 # Print info about environments
 logger = get_logger(options.logmsg, 'INFO') # noqa

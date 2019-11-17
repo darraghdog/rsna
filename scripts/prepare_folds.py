@@ -2,7 +2,9 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from scripts.logs import get_logger
+sys.path.insert(0, 'scripts')
+from logs import get_logger
+
 
 DATAPATH = 'data'
 trndf = pd.read_csv(os.path.join(DATAPATH, 'raw/stage_2_train.csv.zip'))
