@@ -7,9 +7,7 @@
 
 ### Overview    
  
-We have a single image classifier (size `480` images with windowing applied), where data is split on 5 folds, but only trained on 3 of them.  
-We then extract the GAP layer (or as we cann it the image embedding) from the classifier, with TTA, and feed into an LSTM.  
-The above is run with and without preprocessed crop of images; however, just with preprocessed crop achieves same score.
+We have a single image classifier (size `480` images with windowing applied), where data is split on 5 folds, but only trained on 3 of them. We then extract the GAP layer (or as we cann it the image embedding) from the classifier, with TTA, and feed into an LSTM. The above is run with and without preprocessed crop of images; however, just with preprocessed crop achieves same score.
 
 ![Alt text](documentation/rsna_nobrainer.png?raw=true "Title")
 
@@ -51,7 +49,7 @@ Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 5.  Run script `sh run_3_train_embedding_extract.sh` to extract image embeddings.
 6.  Run script `sh run_4_train_sequential.sh` to train the sequential lstm.
 7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
-
+    
     
 ### Validation and Leaderboard Progress Stage 2
 
