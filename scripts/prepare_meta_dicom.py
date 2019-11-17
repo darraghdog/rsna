@@ -116,7 +116,7 @@ def generate_df(base, files):
     return df
 
 DATAPATH = 'data'
-TRAIN_DIR = os.path.join(DATAPATH, 'raw/stage_1_train_images')
+TRAIN_DIR = os.path.join(DATAPATH, 'raw/stage_2_train_images')
 TEST_DIR = os.path.join(DATAPATH, 'raw/stage_2_test_images')
 PATHPROC = os.path.join(DATAPATH, 'proc')
 
