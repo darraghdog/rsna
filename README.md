@@ -32,7 +32,7 @@ Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` dir
 1) very fast prediction   
     a) runs in a few minutes    
     b) uses precomputed neural network predictions   
-2) single run on all training data
+2) single run on all training data  
     a) expect this to run for 2 days    
     b) produces single fold from scratch       
 3) retrain models   
