@@ -54,8 +54,10 @@ This creates the below directory tree.
    
 ### MODEL BUILD: There are three options to produce the solution.  
 1) very fast prediction   
-    a) runs in a few minutes    
-    b) uses precomputed neural network predictions   
+    a) runs in 2 hours   
+    b) only trains lstm, used pretrained embeddings   
+    c) only stage 1 test available for download   
+    b) uses precomputed resnext embeddings for a single fold    
 2) single run on all training data  
     a) expect this to run for 2 days    
     b) produces single model on all data from scratch       
@@ -64,13 +66,20 @@ This creates the below directory tree.
     b) trains all models from scratch   
     c) makes full bagged submission prediction.
 Note: each time you run/rerun one of the above, you should ensure the `/preds` directory is empty.
+
+#### 2. Fast prediction - train lstm only (~2 hours)   
+
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
+1.  Run script `run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.
+           ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`    
+           ... when you rerun you will need to replace the embeddings/loader with these, and change datapath to `--datapath data` in the lstm run.   
    
-#### 2. Retrain single model   
+#### 2. Retrain single model (2 days)   
     
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.   
 1.  Run script `run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result.    
 
-#### 3. Retrain full models
+#### 3. Retrain full models (10 days)    
      
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 1.  Run script `sh run_12_trainfull_imgclassifier.sh` to train the image pipeline.
