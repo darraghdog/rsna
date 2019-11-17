@@ -41,10 +41,11 @@ Train all on stage2 data, we only got to train two folds of the image model on s
 ### Steps to reproduce submissions
    
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.    
-   
+  
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
-2.  Run script `sh prepare_data.sh` to prepare the meta data and perform image windowing.
-3.  Run script `sh run_train_img.sh` to train the image pipeline.
+2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
+3.  Run script `sh prepare_data.sh` to prepare the meta data and perform image windowing.
+4.  Run script `sh run_train_img.sh` to train the image pipeline.
    
 4. 
     
