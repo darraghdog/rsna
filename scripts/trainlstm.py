@@ -389,5 +389,5 @@ for epoch in range(EPOCHS):
 logger.info('Write out bagged prediction to preds folder')
 ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
 ytstout = makeSub(ytstpred, imgtst)
-ytstout.to_csv('preds/lstm{}{}{}delta_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, epoch, embnm), \
+ytstout.to_csv('preds/lstm{}{}{}_{}_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, WORK_DIR, epoch, embnm), \
             index = False, compression = 'gzip')
