@@ -2,7 +2,7 @@ import os
 import pickle
 import random
 import glob
-
+import datetime
 import pandas as pd
 import numpy as np
 import torch
@@ -12,8 +12,9 @@ from tqdm import tqdm
 from joblib import delayed, Parallel
 import zipfile
 from pydicom.filebase import DicomBytesIO
-from scripts.logs import get_logger
-from scripts.utils import dumpobj, loadobj, GradualWarmupScheduler
+import sys
+sys.path.insert(0, 'scripts')
+from logs import get_logger, dumpobj, loadobj
 
 # Print info about environments
 logger = get_logger('Prepare Data', 'INFO') # noqa
