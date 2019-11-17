@@ -27,7 +27,6 @@ Alternatively you can call dockerhub container `darraghdog/kaggle:apex_build`.
 
 ### Data set up  
    
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
 3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
@@ -69,19 +68,16 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 
 #### 2. Fast prediction - train lstm only (~2 hours)   
 
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 1.  Run script `run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.
            ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`    
            ... when you rerun you will need to replace the embeddings/loader with these, and change datapath to `--datapath data` in the lstm run.   
    
 #### 2. Retrain single model (2 days)   
     
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.   
 1.  Run script `run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result.    
 
 #### 3. Retrain full models (10 days)    
      
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 1.  Run script `sh run_12_trainfull_imgclassifier.sh` to train the image pipeline.
 2.  Run script `sh run_13_trainfull_embedding_extract.sh` to extract image embeddings.
 3.  Run script `sh run_14_trainfull_sequential.sh` to train the sequential lstm.
