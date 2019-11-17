@@ -7,11 +7,13 @@
 
 ### Overview    
  
-In general we just have a single image classifier, data split on 5 folds, we only trained on 3 of them, and then extracted pre-logit layer from the classifier and fed into an LSTM.
-Classifier trained on 5 epochs each fold, 480 images with below pre-processing. Each epoch, each fold, we extract embedding layer (use TTA and avg embeddings) train a separate LSTM for 12 epochs on each of those - so 15 LSTMs (3 fold image models X 5 epochs), and average the predictions. 
-Was a bit concerned the preprocessing filter may lose information, so trained the above again without the preprocessing filter and it did worse; but averaging both pipelines did ever so slightly better. The pipeline from first paragraph above would, for all intensive purposes be just as good as final solution, but as we needed to fix docu pre-stage 2 the two pipelines are in github and final solution.  
+We have a single image classifier (size `480` images with windowing applied), where data is split on 5 folds, but only trained on 3 of them.  
+We then extract the GAP layer (or as we cann it the image embedding) from the classifier, with TTA, and feed into an LSTM.  
+The above is run with and without preprocessed crop of images; however, just with preprocessed crop achieves same score.
 
 ![Alt text](documentation/rsna_nobrainer.png?raw=true "Title")
+
+### Insights on what components worked well   
 
 **Preprocessing:**
 - Used Appian’s windowing from dicom images. [Linky](https://github.com/darraghdog/rsna/blob/master/eda/window_v1_test.py#L66)
@@ -44,32 +46,14 @@ Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
   
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `sh run_train_img.sh` to train the image pipeline.
-   
-4. 
+3.  Run script `sh run_1_prepare_data.sh` to prepare the meta data and perform image windowing.
+4.  Run script `sh run_2_train_imgclassifier.sh` to train the image pipeline.
+5.  Run script `sh run_3_train_embedding_extract.sh` to extract image embeddings.
+6.  Run script `sh run_4_train_sequential.sh` to train the sequential lstm.
+7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
+
     
-    A. Run training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v12/run_1final_train480.sh`.     
-    B. Run again training of resenext101 for 3 folds for 5 epochs by executing `sh scripts/resnext101v13/run_1final_train480.sh`.   
-
-5.
-    A. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v12/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
-
-    B. Extract embeddings for each of these runs (3 folds, 5 epochs) using `sh scripts/resnext101v13/run_2final_emb.sh`. Note, this script uses test time augmentation, and extracts embeddings for the original image, horizontal flip and transpose.   
-    
-6. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v13/run_3final_lstmdeltasum.sh`   
-7. Train LSTM on image embeddings by sequencing the images per patient, series and study : `sh scripts/resnext101v12/run_3final_lstmdeltasum.sh`.    
-
-8. Bag the results of each of the LSTM runs and create submission using `eda/val_lstm_short.py`. Again, 3 folds 5 epochs, and then LSTM is bagged for the 12 epochs it runs. Here we simply average the results  of all the last LSTM file outputs. **submit2**      
-9. For blending results. 
-
-    9.1. Run another LSTM using `LSTM_submit_05.py` via: `sh izuit/LSTM_submit_05_f0.sh`; `sh izuit/LSTM_submit_05_f0.sh` and `sh izuit/LSTM_submit_05_f0.sh`. 
-
-    9.2. Bag results using `LSTM_submit_05_bagging.py`
-
-    9.3. Build final blend using `blend.ipynb` with alpha = .95 (best results for stage1 LB) **submit1**   
-    
-### Results Stage 2
+### Validation and Leaderboard Progress Stage 2
 
 | Model (`.scripts/` folder) |Image Size|LSTM Epochs|Bag|TTA |Fold|Val     |Stg1 Test |LB Public / Private|Comment                          |
 | ---------------|----------|------|---|----|----|--------|----|------|---------------------------------|
@@ -78,7 +62,7 @@ Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 | ResNeXt-101 32x8d (v12&v13) with LSTM |480    |5     |LSTM 12X | v12 0 1 2- hflip transpose; v13 0 - hflip |0 1 2 0 1 2  (v12 v13)   |0.05699, 0.05866, 0.05642, 0.05696, 0.05844, 0.05588 |0.5703|0.675 / 0.045 | Excl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v21.py` |
 | ResNeXt-101 32x8d (v12&v13) with LSTM |480    |5     |LSTM 12X | v12 0 1 2- hflip transpose |0 1 2  (v12) |0.05699, 0.05866, 0.05642 |0.5706|0.713 / 0.046 | Excl stage 1 test, `resnextv12/run_train1024lstmdeltattasum.sh` `resnextv12/run_train1024lstmdeltattasum.sh`  & `eda/val_lstm_v20.py` |
     
-### Results Stage 1
+### Validation and Leaderboard Progress Stage 1
 
 | Model (`.scripts/` folder) |Image Size|Epochs|Bag|TTA |Fold|Val     |LB    |Comment                          |
 | ---------------|----------|------|---|----|----|--------|------|---------------------------------|
