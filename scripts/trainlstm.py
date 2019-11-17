@@ -46,6 +46,7 @@ parser.add_option('-z', '--decay', action="store", dest="decay", help="Weight De
 parser.add_option('-m', '--lrgamma', action="store", dest="lrgamma", help="Scheduler Learning Rate Gamma", default="1.0")
 parser.add_option('-k', '--ttahflip', action="store", dest="ttahflip", help="Bag with horizontal flip on and off", default="F")
 parser.add_option('-q', '--ttatranspose', action="store", dest="ttatranspose", help="Bag with horizontal flip on and off", default="F")
+parser.add_option('-x', '--datapath', action="store", dest="datapath", help="Data path", default="data")
 
 
 options, args = parser.parse_args()
@@ -80,7 +81,7 @@ lrgamma=float(options.lrgamma)
 DECAY=float(options.decay)
 batch_size = int(options.batchsize)
 ROOT = options.rootpath
-path_data = os.path.join(ROOT, 'data')
+path_data = os.path.join(ROOT, options.datapath)
 path_img = os.path.join(ROOT, options.imgpath)
 WORK_DIR = os.path.join(ROOT, options.workpath)
 path_emb = os.path.join(ROOT, options.imgpath)

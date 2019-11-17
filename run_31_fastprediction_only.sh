@@ -1,6 +1,6 @@
 N_GPU=2
-WDIR='../resnext101v12fold1'
-FOLD=0
+WDIR='resnext101v12fold1'
+FOLD=1
 SIZE='480'
 
 # Download pretrained embeddings for stage 1 only (25 minutes with fast connection - 16GB file )
@@ -18,11 +18,11 @@ gdown https://drive.google.com/uc?id=1KcF51RnQpSjCBgNzbI4UX2EaUfOS1zHq
 cd ../
 
 # Run LSTM for each of the epochs (~1 hour)
-for GEPOCH in 0
+for GEPOCH in 0 1 2 3
 do            
-    python3 trainlstm.py  \
-                --logmsg Rsna-lstm-$GEPOCH-$FOLD-fp16 --epochs 12 --fold $FOLD  --lr 0.00001 --batchsize 4  --workpath scripts/$WDIR  \
-                --ttahflip F --ttatranspose F  --lrgamma 0.95 --nbags 12 --globalepoch $GEPOCH  --loadcsv F --lstm_units 2048
+    python3 scripts/trainlstm.py  \
+                --logmsg Rsna-lstm-$GEPOCH-$FOLD-fp16 --epochs 12 --fold $FOLD  --lr 0.00001 --batchsize 4  --workpath $WDIR  \
+                --datapath $WDIR --ttahflip F --ttatranspose F  --lrgamma 0.95 --nbags 12 --globalepoch $GEPOCH  --loadcsv F --lstm_units 2048
 done
 
 # Create Bagged submission (a minute)

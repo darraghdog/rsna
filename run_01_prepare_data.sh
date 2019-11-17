@@ -12,6 +12,8 @@ mkdir $ROOT/checkpoints
 mkdir $ROOT/preds
 mkdir -p $ROOT/scripts/resnext101v01/weights
 mkdir -p $ROOT/scripts/resnext101v02/weights
+mkdir -p $ROOT/scripts/resnext101v03/weights
+mkdir -p $ROOT/scripts/resnext101v04/weights
 
 # Download checkpoint
 cd $CKPTDIR
@@ -24,8 +26,8 @@ unzip -qq rsna-intracranial-hemorrhage-detection.zip
 cd $ROOT
 
 # Copy csv files to data directory
+unzip $RAW_DATA_DIR/*.csv* 
 cp $RAW_DATA_DIR/*.csv* CLEAN_DATA_DIR/
-unzip CLEAN_DATA_DIR/*.csv*
 
 # Prepare images and metadata
 python scripts/prepare_meta_dicom.py

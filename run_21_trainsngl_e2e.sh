@@ -17,7 +17,7 @@ python3 scripts/trainorig.py  \
 # Run LSTM for each of the epochs (~2 hours)
 for GEPOCH in 0 1 2 3 
 do            
-    python3 trainlstm.py  \
+    python3 scripts/trainlstm.py  \
                 --logmsg Rsna-lstm-$GEPOCH-$FOLD-fp16 --epochs 12 --fold $FOLD  --lr 0.00001 --batchsize 4  --workpath scripts/$WDIR  \
                 --ttahflip F --ttatranspose F  --lrgamma 0.95 --nbags 12 --globalepoch $GEPOCH  --loadcsv F --lstm_units 2048
 done
