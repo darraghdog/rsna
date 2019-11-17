@@ -34,22 +34,31 @@ Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` dir
     b) uses precomputed neural network predictions   
 2) single run on all training data  
     a) expect this to run for 2 days    
-    b) produces single fold from scratch       
+    b) produces single model on all data from scratch       
 3) retrain models   
     a) expect this to run about 10 days on a single node   
     b) trains all models from scratch   
     c) makes full bagged submission prediction.
    
-### 3. Retrain models
+### 2. Retrain single model
+
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
+
+1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
+2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
+3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
+4.  Run script `run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result. 
+
+#### 3. Retrain full models
 
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
   
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh run_1_prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `sh run_2_trainfull_imgclassifier.sh` to train the image pipeline.
-5.  Run script `sh run_3_trainfull_embedding_extract.sh` to extract image embeddings.
-6.  Run script `sh run_4_trainfull_sequential.sh` to train the sequential lstm.
+3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
+4.  Run script `sh run_12_trainfull_imgclassifier.sh` to train the image pipeline.
+5.  Run script `sh run_13_trainfull_embedding_extract.sh` to extract image embeddings.
+6.  Run script `sh run_14_trainfull_sequential.sh` to train the sequential lstm.
 7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
 
 ### Insights on what components worked well   

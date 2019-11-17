@@ -13,13 +13,13 @@ do
             # Extract original and flipped image embeddings
             python3 scripts/trainorig.py  \
                 --logmsg Rsna-lb-$SIZE-fp16 --start 0 --epochs 6 --fold $FOLD  --lr 0.00002 --batchsize 32  --workpath scripts/$WDIR  \
-                --stage2 T --hflip $HFLIP --transpose F --infer EMB --imgpath data/mount/512X512X6/ --size $SIZE \
+                --stage2 T --hflip $HFLIP --transpose F --infer EMB --imgpath data/proc/ --size $SIZE \
                 --weightsname weights/model_512_resnext101$FOLD.bin
         done
             # Extract transposed image embeddings
             python3 scripts/trainorig.py  \
                 --logmsg Rsna-lb-$SIZE-fp16 --start 0 --epochs 6 --fold $FOLD  --lr 0.00002 --batchsize 32  --workpath scripts/$WDIR  \
-                --stage2 T --hflip F --transpose T --infer EMB --imgpath data/mount/512X512X6/ --size $SIZE \
+                --stage2 T --hflip F --transpose T --infer EMB --imgpath data/proc/ --size $SIZE \
                 --weightsname weights/model_512_resnext101$FOLD.bin
     done
 done
