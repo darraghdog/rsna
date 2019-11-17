@@ -11,6 +11,47 @@ We have a single image classifier (size `480` images with windowing applied), wh
 
 ![Alt text](documentation/rsna_nobrainer.png?raw=true "Title")
 
+### Hardware  
+    
+Ubuntu 16.04 LTS (512 GB boot disk)  
+2 Nodes of 4 x NVIDIA Tesla V100  
+16 GB memory per GPU  
+4x 1.92 TB SSD RAID 0  
+Dual 20-core Intel® Xeon®  
+E5-2698 v4 2.2 GHz  
+
+### Software   
+Please install docker and run all within a docker environement.   
+A docker file is made available `RSNADOCKER.docker` to build.   
+Alternatively you can call it through calling dockerhup with the container `darraghdog/kaggle:apex_build`.
+
+### Data set up  
+Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` directory in script `run_1_prepare_data.sh`. This will create the required folders.   
+
+### MODEL BUILD: There are three options to produce the solution.
+1) very fast prediction
+    a) runs in a few minutes
+    b) uses precomputed neural network predictions
+2) ordinary prediction
+    a) expect this to run for 1-2 days
+    b) uses binary model files
+3) retrain models
+    a) expect this to run about a week
+    b) trains all models from scratch
+    c) follow this with (2) to produce entire solution from scratch
+   
+### 3. Retrain models
+
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
+  
+1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
+2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
+3.  Run script `sh run_1_prepare_data.sh` to prepare the meta data and perform image windowing.
+4.  Run script `sh run_2_train_imgclassifier.sh` to train the image pipeline.
+5.  Run script `sh run_3_train_embedding_extract.sh` to extract image embeddings.
+6.  Run script `sh run_4_train_sequential.sh` to train the sequential lstm.
+7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
+
 ### Insights on what components worked well   
 
 **Preprocessing:**
@@ -38,14 +79,3 @@ Too long to do justice... mixup on image, mixup on embedding, augmentations on s
 Make the classifier and the lstm model single end-to-end model. 
 Train all on stage2 data, we only got to train two folds of the image model on stage-2 data.
    
-### Steps to reproduce full submission
-   
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.    
-  
-1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
-2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh run_1_prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `sh run_2_train_imgclassifier.sh` to train the image pipeline.
-5.  Run script `sh run_3_train_embedding_extract.sh` to extract image embeddings.
-6.  Run script `sh run_4_train_sequential.sh` to train the sequential lstm.
-7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
