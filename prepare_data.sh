@@ -7,7 +7,7 @@ CKPTDIR=$ROOT/checkpoints
 
 
 # Create directory structures
-mkdir -p $RAW_DATA_DIR
+# mkdir -p $RAW_DATA_DIR
 mkdir $ROOT/checkpoints
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v12/weights
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v13/weights
@@ -19,8 +19,8 @@ cd $ROOT
 
 # Download competition data
 cd $RAW_DATA_DIR
-kaggle competitions download -c rsna-intracranial-hemorrhage-detection
-unzip rsna-intracranial-hemorrhage-detection
+# kaggle competitions download -c rsna-intracranial-hemorrhage-detection
+unzip rsna-intracranial-hemorrhage-detection.zip
 cd $ROOT
 
 # Copy csv files to data directory
