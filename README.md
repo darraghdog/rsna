@@ -26,8 +26,32 @@ A docker file is made available `RSNADOCKER.docker` to build.
 Alternatively you can call it through calling dockerhup with the container `darraghdog/kaggle:apex_build`.
 
 ### Data set up  
-Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` directory in script `run_1_prepare_data.sh`. This will create the required folders.   
+   
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
+1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
+2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
+3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
 
+This creates the below directory tree.
+```
+.
+├── checkpoints
+├── data
+│   └── raw
+│       ├── stage_2_test_images
+│       └── stage_2_train_images
+├── docker
+├── documentation
+├── preds
+└── scripts
+    ├── resnext101v01
+    │   └── weights
+    ├── resnext101v02
+    │   └── weights
+    └── resnext101v03
+        └── weights
+```
+   
 ### MODEL BUILD: There are three options to produce the solution.  
 1) very fast prediction   
     a) runs in a few minutes    
@@ -41,26 +65,18 @@ Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` dir
     c) makes full bagged submission prediction.
 Note: each time you run/rerun one of the above, you should ensure the `/preds` directory is empty.
    
-#### 2. Retrain single model
-
-Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
-
-1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
-2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result. 
+#### 2. Retrain single model   
+    
+Note: Run environment within Docker file `docker/RSNADOCKER.docker`.   
+1.  Run script `run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result.    
 
 #### 3. Retrain full models
-
+     
 Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
-  
-1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
-2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `sh run_12_trainfull_imgclassifier.sh` to train the image pipeline.
-5.  Run script `sh run_13_trainfull_embedding_extract.sh` to extract image embeddings.
-6.  Run script `sh run_14_trainfull_sequential.sh` to train the sequential lstm.
-7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
+1.  Run script `sh run_12_trainfull_imgclassifier.sh` to train the image pipeline.
+2.  Run script `sh run_13_trainfull_embedding_extract.sh` to extract image embeddings.
+3.  Run script `sh run_14_trainfull_sequential.sh` to train the sequential lstm.
+4.  Run script `python scripts/bagged_submission.py` to create bagged submission.
 
 ### Insights on what components worked well   
 
