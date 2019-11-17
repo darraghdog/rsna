@@ -70,7 +70,7 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 
 1.  Run script `run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.     
            ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`       
-           ... when you rerun you will need to replace the embeddings/loader with these, and change datapath to `--datapath data` in the lstm run.      
+           ... when you rerun you will need to replace the embeddings & torch dataloaders with the above downloaded, and also change the lstm step datapath to `--datapath data` in the lstm run.      
    
 #### 2. Retrain single model (2 days)   
     
