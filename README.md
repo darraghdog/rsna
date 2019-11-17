@@ -52,8 +52,8 @@ This creates the below directory tree.
 ```
    
 ### Model Build: There are three options to produce the solution.  
-1) very fast prediction   
-    a) runs in 2 hours   
+1) fast lstm train and prediction   
+    a) runs in 3 hours   
     b) only trains lstm, used pretrained embeddings   
     c) only stage 1 test available for download   
     b) uses precomputed resnext embeddings for a single fold    
