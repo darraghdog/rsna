@@ -9,6 +9,7 @@ CKPTDIR=$ROOT/checkpoints
 # Create directory structures
 # mkdir -p $RAW_DATA_DIR
 mkdir $ROOT/checkpoints
+mkdir $ROOT/preds
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v01/weights
 mkdir -p $RAW_DATA_DIR/scripts/resnext101v02/weights
 
