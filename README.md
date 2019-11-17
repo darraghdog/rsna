@@ -23,7 +23,7 @@ E5-2698 v4 2.2 GHz
 ### Software   
 Please install docker and run all within a docker environement.   
 A docker file is made available `RSNADOCKER.docker` to build.   
-Alternatively you can call it through calling dockerhup with the container `darraghdog/kaggle:apex_build`.
+Alternatively you can call dockerhub container `darraghdog/kaggle:apex_build`.
 
 ### Data set up  
    
