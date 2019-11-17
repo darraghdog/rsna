@@ -14,7 +14,7 @@ We have a single image classifier (size `480` images with windowing applied), wh
 ### Hardware  
     
 Ubuntu 16.04 LTS (512 GB boot disk)  
-2 Nodes of 4 x NVIDIA Tesla V100  
+Single Node of 4 x NVIDIA Tesla V100  
 16 GB memory per GPU  
 4x 1.92 TB SSD RAID 0  
 Dual 20-core Intel® Xeon®  
@@ -28,17 +28,17 @@ Alternatively you can call it through calling dockerhup with the container `darr
 ### Data set up  
 Clone repo https://github.com/darraghdog/rsna and set the location as `ROOT` directory in script `run_1_prepare_data.sh`. This will create the required folders.   
 
-### MODEL BUILD: There are three options to produce the solution.
-1) very fast prediction
-    a) runs in a few minutes
-    b) uses precomputed neural network predictions
-2) ordinary prediction
-    a) expect this to run for 1-2 days
-    b) uses binary model files
-3) retrain models
-    a) expect this to run about a week
-    b) trains all models from scratch
-    c) follow this with (2) to produce entire solution from scratch
+### MODEL BUILD: There are three options to produce the solution.  
+1) very fast prediction   
+    a) runs in a few minutes    
+    b) uses precomputed neural network predictions   
+2) single run on all training data
+    a) expect this to run for 2 days    
+    b) produces single fold from scratch       
+3) retrain models   
+    a) expect this to run about 10 days on a single node   
+    b) trains all models from scratch   
+    c) makes full bagged submission prediction.
    
 ### 3. Retrain models
 
@@ -47,9 +47,9 @@ Note: Run environment within Docker file `docker/RSNADOCKER.docker`.
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
 3.  Run script `sh run_1_prepare_data.sh` to prepare the meta data and perform image windowing.
-4.  Run script `sh run_2_train_imgclassifier.sh` to train the image pipeline.
-5.  Run script `sh run_3_train_embedding_extract.sh` to extract image embeddings.
-6.  Run script `sh run_4_train_sequential.sh` to train the sequential lstm.
+4.  Run script `sh run_2_trainfull_imgclassifier.sh` to train the image pipeline.
+5.  Run script `sh run_3_trainfull_embedding_extract.sh` to extract image embeddings.
+6.  Run script `sh run_4_trainfull_sequential.sh` to train the sequential lstm.
 7.  Run script `python scripts/bagged_submission.py` to create bagged submission.
 
 ### Insights on what components worked well   
