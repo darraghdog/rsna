@@ -51,7 +51,7 @@ This creates the below directory tree.
         └── weights
 ```
    
-### MODEL BUILD: There are three options to produce the solution.  
+### Model Build: There are three options to produce the solution.  
 1) very fast prediction   
     a) runs in 2 hours   
     b) only trains lstm, used pretrained embeddings   
@@ -66,11 +66,11 @@ This creates the below directory tree.
     c) makes full bagged submission prediction.
 Note: each time you run/rerun one of the above, you should ensure the `/preds` directory is empty.
 
-#### 2. Fast prediction - train lstm only (~2 hours)   
+#### 1. Fast prediction - train lstm only (~2 hours)   
 
-1.  Run script `run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.
-           ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`    
-           ... when you rerun you will need to replace the embeddings/loader with these, and change datapath to `--datapath data` in the lstm run.   
+1.  Run script `run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.     
+           ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`       
+           ... when you rerun you will need to replace the embeddings/loader with these, and change datapath to `--datapath data` in the lstm run.      
    
 #### 2. Retrain single model (2 days)   
     
