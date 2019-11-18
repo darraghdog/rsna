@@ -5,11 +5,12 @@ from sklearn.model_selection import train_test_split
 import sys
 sys.path.insert(0, 'scripts')
 from logs import get_logger
+logger = get_logger('Create folds', 'INFO') # noqa
 
 
 DATAPATH = 'data'
-trndf = pd.read_csv(os.path.join(DATAPATH, 'raw/stage_2_train.csv.zip'))
-tstdf = pd.read_csv(os.path.join(DATAPATH, 'raw/stage_2_sample_submission.csv.zip'))
+trndf = pd.read_csv(os.path.join(DATAPATH, 'raw/stage_2_train.csv'))
+tstdf = pd.read_csv(os.path.join(DATAPATH, 'raw/stage_2_sample_submission.csv'))
 trnmdf = pd.read_csv(os.path.join(DATAPATH, 'train_metadata.csv'))
 
 
