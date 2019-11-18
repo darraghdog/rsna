@@ -1,6 +1,7 @@
 # Parameters
 # Clone repo https://github.com/darraghdog/rsna and set the location as ROOT directory
 ROOT='/mnt/lsf/share/dhanley2/rsna'
+ROOT='/data/submit/rsna'
 RAW_DATA_DIR=$ROOT/data/raw
 CLEAN_DATA_DIR=$ROOT/data
 CKPTDIR=$ROOT/checkpoints
@@ -10,6 +11,7 @@ CKPTDIR=$ROOT/checkpoints
 # mkdir -p $RAW_DATA_DIR
 mkdir $ROOT/checkpoints
 mkdir $ROOT/preds
+mkdir $ROOT/data/proc
 mkdir -p $ROOT/scripts/resnext101v01/weights
 mkdir -p $ROOT/scripts/resnext101v02/weights
 mkdir -p $ROOT/scripts/resnext101v03/weights
@@ -27,7 +29,7 @@ cd $ROOT
 
 # Copy csv files to data directory
 unzip $RAW_DATA_DIR/*.csv* 
-cp $RAW_DATA_DIR/*.csv* CLEAN_DATA_DIR/
+cp $RAW_DATA_DIR/*.csv* $CLEAN_DATA_DIR/
 
 # Prepare images and metadata
 python scripts/prepare_meta_dicom.py

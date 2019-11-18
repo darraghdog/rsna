@@ -89,7 +89,7 @@ def convert_dicom_to_jpg(name):
         image = apply_window_policy(image)
         image -= image.min((0,1))
         image = (255*image).astype(np.uint8)
-        cv2.imwrite(os.path.join(PATHPROC, dirtype, imgnm)+'.jpg', image)
+        cv2.imwrite(os.path.join(PATHPROC, imgnm)+'.jpg', image)
     except:
         logger.info(name)
         
@@ -132,7 +132,12 @@ train_df.to_csv(os.path.join(DATAPATH, 'train_metadata.csv'))
 
 logger.info('Load meta files')
 trnmdf = pd.read_csv(os.path.join(DATAPATH, 'train_metadata.csv'))
+logger.info('Train meta shape {} {}'.format(*trnmdf.shape))
+
 tstmdf = pd.read_csv(os.path.join(DATAPATH, 'test_metadata.csv'))
+logger.info('Test  meta shape {} {}'.format(*tstmdf.shape))
+
+
 mdf = pd.concat([trnmdf, tstmdf], 0)
 rescaledict = mdf.set_index('SOPInstanceUID')[['RescaleSlope', 'RescaleIntercept']].to_dict()
 
