@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import sys
 sys.path.insert(0, 'scripts')
 from logs import get_logger
 
