@@ -86,21 +86,21 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 ### Insights on what components worked well   
 
 **Preprocessing:**
-- Used Appian’s windowing from dicom images. [Linky](https://github.com/darraghdog/rsna/blob/master/eda/window_v1_test.py#L66)
-- Cut any black space. There were then headrest or machine artifacts in the image making the head much smaller than it could be - see visual above. These were generally thin lines, so used scipy.ndimage minimum_filter to try to wipe those thin lines. [Linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainorig.py#L159)
-- Albumentations as mentioned in visual above. 
+- Used Appian’s windowing from dicom images. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/prepare_meta_dicom.py#L65)
+- Cut any black space back to edges of where non-black space begins; although keep the square aspect ratio. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L143)
+- Albumentations as mentioned in visual above. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L230)
 
 **Image classifier**
 - Resnext101 - did not spend a whole lot of time here as it ran so long. But tested SeResenext and Efficitentnetv0 and they did not work as well. 
-- Extract GAP layer at inference time  [Linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainorig.py#L387) 
+- Extract GAP layer at inference time  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L335) 
 
 **Create Sequences**
-- Extract metadata from dicoms :  [Linky](https://github.com/darraghdog/rsna/blob/master/eda/meta_eda_v1.py) 
-- Sequence images on Patient, Study and Series - most sequences were between 24 and 60 images in length.  [Linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L200) 
+- Extract metadata from dicoms (taken from public kernels) :  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/prepare_meta_dicom.py#L96) 
+- Sequence images on Patient, Study and Series - most sequences were between 24 and 60 images in length.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainlstm.py#L132) 
 
 **LSTM**
-- Feed in the embeddings in sequence on above key - Patient, Study and Series - also concat on the deltas between current and previous/next embeddings (<current-previous embedding> and <current-next embedding>) to give the model knowledge of changes around the image.  [Linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L133) 
-- LSTM architecture lifted from the winners of first stage toxic competition. This is a beast - only improvements came from making the hiddens layers larger. Oh, we added on the embeddings to the lstm output and this helped a bit also.  [Linky](https://github.com/darraghdog/rsna/blob/a97018a7b7ec920425189c7e37c1128dd9cb0158/scripts/resnext101v12/trainlstmdeltasum.py#L352) 
+- Feed in the embeddings in sequence on above key - Patient, Study and Series - also concat on the deltas between current and previous/next embeddings (<current-previous embedding> and <current-next embedding>) to give the model knowledge of changes around the image.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainlstm.py#L140) 
+- LSTM architecture lifted from the winners of first stage toxic competition. This is a beast - only improvements came from making the hiddens layers larger. Oh, we added on the embeddings to the lstm output and this helped a bit also.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainlstm.py#L292) 
 - For sequences of different length, padded them to same length, made a dummy embedding of zeros, and then through the results of this away before calculating loss and saving the predictions.  
 
 **What did not help...**  
