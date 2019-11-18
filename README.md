@@ -87,7 +87,7 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 
 **Preprocessing:**
 - Used Appian’s windowing from dicom images. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/prepare_meta_dicom.py#L65)
-- Cut any black space back to edges of where non-black space begins; although keep the square aspect ratio. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L143)
+- Cut any black space back to edges of where non-black space begins; although keep the square aspect ratio.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L143)
 - Albumentations as mentioned in visual above. [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainorig.py#L230)
 
 **Image classifier**
