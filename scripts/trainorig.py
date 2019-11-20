@@ -232,6 +232,9 @@ logger.info('Trn shape {} {}'.format(*train.shape))
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
+# To make things easy, if the val dataset is empty, we will sanity check it on some records
+if valdf.shape[0]==0:
+    valdf = trndf.head(1000).copy()
 logger.info('Trn shape {} {}'.format(*trndf.shape))
 logger.info('Val shape {} {}'.format(*valdf.shape))
 
@@ -346,7 +349,7 @@ for epoch in range(n_epochs):
         # Extract embedding layer
         model.module.fc = Identity()
         model.eval()
-        DATASETS = ['tst', 'val', 'trn']
+        DATASETS = ['tst', 'val', 'trn'] 
         LOADERS = [tstloader, valloader, trnloader]
         for typ, loader in zip(DATASETS, LOADERS):
             ls = []
@@ -358,7 +361,9 @@ for epoch in range(n_epochs):
                 out = model(inputs)
                 ls.append(out.detach().cpu().numpy())
             outemb = np.concatenate(ls, 0).astype(np.float32)
-            logger.info('Write embeddings : shape {} {}'.format(*outemb))
-            np.savez_compressed(os.path.join(WORK_DIR, 'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), outemb))
-            dumpobj(os.path.join(WORK_DIR, 'loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), loader))
+            logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
+            fembname =  'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)
+            logger.info('Embedding file name : {}'.format(fembname))
+            np.savez_compressed(os.path.join(WORK_DIR, 'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), outemb)
+            dumpobj(os.path.join(WORK_DIR, 'loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), loader)
             gc.collect()

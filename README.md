@@ -5,6 +5,11 @@
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
 
+## TODO
+- Remove hardcoding in scripts  
+- Move scripts to `bin` directory  
+- Update method to download correct checkpoint for resnext   
+
 ### Overview    
  
 We have a single image classifier (size `480` images with windowing applied), where data is split on 5 folds, but only trained on 3 of them. We then extract the GAP layer (henceforth, we refer to it as the embedding) from the classifier, with TTA, and feed into an LSTM. The above is run with and without preprocessed crop of images; however, just with preprocessed crop achieves same score.
