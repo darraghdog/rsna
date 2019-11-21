@@ -33,7 +33,7 @@ Alternatively you can call dockerhub container `darraghdog/kaggle:apex_build`.
    
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
-3.  Run script `sh run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
+3.  Run script `sh ./bin/run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
 
 This creates the below directory tree.
 ```
@@ -76,21 +76,21 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 
 #### 1. Fast prediction - train lstm only (~2 hours)   
 
-1.  Run script `bin/run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.     
+1.  Run script `./bin/run_31_fastprediction_only.sh` to download embeddings for a single fold (stage 1 only). This model will achieve a top20 stage 1 result.     
            ... if you wish to download stage 2 embeddings run `wget gdown https://drive.google.com/uc?id=1YxCJ0mWIYXfYLN15DPpQ6OLSt4Y54Hp0`       
            ... when you rerun you will need to replace the embeddings & torch dataloaders with the above downloaded, and also change the lstm step datapath to `--datapath data` in the lstm run.      
    
 #### 2. Retrain single model (2 days)   
     
-1.  Run script `bin/run_21_trainsngl_e2e.sh` to train on all data and for 3 epochs only. This was tested end to end and scored `0.04607` on [private stage 2 leaderboard](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/leaderboard).
+1.  Run script `./bin/run_21_trainsngl_e2e.sh` to train on all data and for 3 epochs only. This was tested end to end and scored `0.04607` on [private stage 2 leaderboard](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/leaderboard).
 
 
 #### 3. Retrain full models (10 days)    
      
-1.  Run script `sh bin/run_12_trainfull_imgclassifier.sh` to train the image pipeline.
-2.  Run script `sh bin/run_13_trainfull_embedding_extract.sh` to extract image embeddings.
-3.  Run script `sh bin/run_14_trainfull_sequential.sh` to train the sequential lstm.
-4.  Run script `python scripts/bagged_submission.py` to create bagged submission.
+1.  Run script `sh ./bin/run_12_trainfull_imgclassifier.sh` to train the image pipeline.
+2.  Run script `sh ./bin/run_13_trainfull_embedding_extract.sh` to extract image embeddings.
+3.  Run script `sh ./bin/run_14_trainfull_sequential.sh` to train the sequential lstm.
+4.  Run script `python ./scripts/bagged_submission.py` to create bagged submission.
 
 ### Insights on what components worked well   
 
