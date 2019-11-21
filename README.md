@@ -1,8 +1,6 @@
 ### RSNA Intracranial Hemorrhage Detection
   
-##### [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
-##### [Sponsored by RSNA](https://www.rsna.org/)   
-##### Team [NoBrainer](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/team) Darragh Hanley & Dmitry Larko
+##### Hosted on [Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview); Sponsored by [RSNA](https://www.rsna.org/); Team [NoBrainer](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/team) Darragh Hanley & Dmitry Larko
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
 
