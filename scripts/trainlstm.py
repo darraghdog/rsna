@@ -31,7 +31,7 @@ parser.add_option('-o', '--fold', action="store", dest="fold", help="Fold for sp
 parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of bags for averaging", default="4")
 parser.add_option('-e', '--epochs', action="store", dest="epochs", help="epochs", default="10")
 parser.add_option('-b', '--batchsize', action="store", dest="batchsize", help="batch size", default="4")
-parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/rsna/")
+parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="")
 parser.add_option('-i', '--imgpath', action="store", dest="imgpath", help="root directory", default="data/mount/512X512X6/")
 parser.add_option('-w', '--workpath', action="store", dest="workpath", help="Working path", default="densenetv1/weights")
 parser.add_option('-f', '--weightsname', action="store", dest="weightsname", help="Weights file name", default="pytorch_model.bin")
@@ -84,7 +84,7 @@ ROOT = options.rootpath
 path_data = os.path.join(ROOT, options.datapath)
 path_img = os.path.join(ROOT, options.imgpath)
 WORK_DIR = os.path.join(ROOT, options.workpath)
-path_emb = os.path.join(ROOT, options.imgpath)
+path_emb = os.path.join(ROOT, options.workpath)
 WEIGHTS_NAME = options.weightsname
 fold = int(options.fold)
 LOADCSV= options.loadcsv=='T'
@@ -215,6 +215,10 @@ tstdf['embidx'] = range(tstdf.shape[0])
 trndf = trndf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 valdf = valdf.merge(trnmdf.drop('PatientID', 1), on = 'Image')
 tstdf = tstdf.merge(tstmdf, on = 'Image')
+
+logger.info('Trn df shape {} {}'.format(*trndf.shape))
+logger.info('Val df shape {} {}'.format(*valdf.shape))
+logger.info('Tst df shape {} {}'.format(*tstdf.shape))
 
 # Load embeddings
 embnm='emb_sz256_wt256_fold{}_epoch{}'.format(fold, GLOBALEPOCH)
@@ -364,13 +368,16 @@ for epoch in range(EPOCHS):
         if step%1000==0:
             logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
                         format(step, len(trnloader), (tr_loss/(1+step))))
+    output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
+    torch.save(model.state_dict(), output_model_file)
+
     scheduler.step()
     model.eval()
-    
+    '''
     logger.info('Prep val score...')
     ypred, imgval = predict(valloader)
     ypredls.append(ypred)
-    
+     
     yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
     yvalout = makeSub(yvalpred, imgval)
     yvalp = makeSub(ypred, imgval)
@@ -383,7 +390,7 @@ for epoch in range(EPOCHS):
     valloss = log_loss(yact['Label'].values, yvalp['Label'].values.clip(.00001,.99999) , sample_weight = weights)
     vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999) , sample_weight = weights)
     logger.info('Epoch {} val logloss {:.5f} bagged {:.5f}'.format(epoch, valloss, vallossavg))
-    
+    '''
     logger.info('Prep test sub...')
     ypred, imgtst = predict(tstloader)
     ypredtstls.append(ypred)
@@ -391,5 +398,5 @@ for epoch in range(EPOCHS):
 logger.info('Write out bagged prediction to preds folder')
 ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
 ytstout = makeSub(ytstpred, imgtst)
-ytstout.to_csv('preds/lstm{}{}{}_{}_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, WORK_DIR, epoch, embnm), \
+ytstout.to_csv('preds/lstm{}{}{}_{}_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, WORK_DIR.split('/')[-1], epoch, embnm), \
             index = False, compression = 'gzip')

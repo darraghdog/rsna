@@ -79,7 +79,8 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
    
 #### 2. Retrain single model (2 days)   
     
-1.  Run script `bin/run_21_trainsngl_e2e.sh` to train on all data and bag four folds. This model will achieve a top10 result.    
+1.  Run script `bin/run_21_trainsngl_e2e.sh` to train on all data and for 3 epochs only. This was tested end to end and scored `0.04607` on [private stage 2 leaderboard](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/leaderboard).
+
 
 #### 3. Retrain full models (10 days)    
      
