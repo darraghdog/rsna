@@ -1,14 +1,8 @@
 ### RSNA Intracranial Hemorrhage Detection
   
-#### [Hosted on Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview)  
-#### [Sponsored by RSNA](https://www.rsna.org/)   
+##### Hosted on [Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview); Sponsored by [RSNA](https://www.rsna.org/); Team [NoBrainer](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/team) Darragh Hanley & Dmitry Larko
    
 ![](https://media.giphy.com/media/WR38jS4CtKttHd7oTU/giphy.gif) 
-
-## TODO
-- Remove hardcoding in scripts  
-- Move scripts to `bin` directory  
-- Update method to download correct checkpoint for resnext   
 
 ### Overview    
  
@@ -111,7 +105,7 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 **LSTM**
 - Feed in the embeddings in sequence on above key - Patient, Study and Series - also concat on the deltas between current and previous/next embeddings (<current-previous embedding> and <current-next embedding>) to give the model knowledge of changes around the image.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainlstm.py#L140) 
 - LSTM architecture lifted from the winners of first stage toxic competition. This is a beast - only improvements came from making the hiddens layers larger. Oh, we added on the embeddings to the lstm output and this helped a bit also.  [Linky](https://github.com/darraghdog/rsna/blob/15ebca153a4f86e8b3e5b760df6ca9e712f05648/scripts/trainlstm.py#L292) 
-- For sequences of different length, padded them to same length, made a dummy embedding of zeros, and then through the results of this away before calculating loss and saving the predictions.  
+- For sequences of different length, padded them to same length, made a dummy embedding of zeros, and then threw the results of this away before calculating loss and saving the predictions.  
 
 **What did not help...**  
 Too long to do justice... mixup on image, mixup on embedding, augmentations on sequences (partial sequences, reversed sequences), 1d convolutions for sequences (although SeuTao got it working)
