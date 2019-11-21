@@ -5,7 +5,7 @@ ROOT='/data/submit/rsna'
 RAW_DATA_DIR=$ROOT/data/raw
 CLEAN_DATA_DIR=$ROOT/data
 CKPTDIR=$ROOT/checkpoints
-
+CKPTURL='https://darraghdog1.s3-eu-west-1.amazonaws.com/resnext101_32x8d_wsl_checkpoint.pth'
 
 # Create directory structures
 # mkdir -p $RAW_DATA_DIR
@@ -19,7 +19,8 @@ mkdir -p $ROOT/scripts/resnext101v04/weights
 
 # Download checkpoint
 cd $CKPTDIR
-wget https://download.pytorch.org/models/ig_resnext101_32x8-c38310e5.pth -O resnext101_32x8d_wsl_checkpoint.pth
+#wget https://download.pytorch.org/models/ig_resnext101_32x8-c38310e5.pth -O resnext101_32x8d_wsl_checkpoint.pth
+wget $CKPTURL  -O resnext101_32x8d_wsl_checkpoint.pth
 cd $ROOT
 
 # Unzip competition data 
