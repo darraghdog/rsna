@@ -29,11 +29,16 @@ Alternatively you can call dockerhub container `darraghdog/kaggle:apex_build`.
 1.  Install with `git clone https://github.com/darraghdog/rsna && cd rsna`
 2.  Download the raw data and place the zip file `rsna-intracranial-hemorrhage-detection.zip` in subdirectory `./data/raw/`.
 3.  Run script `sh ./bin/run_01_prepare_data.sh` to prepare the meta data and perform image windowing.
-
-This creates the below directory tree.
+**Note** Hosted pretrained weights are downloaded here. The same weights can be obtained by running the below in the docker.   
+```
+import torch
+model = torch.hub.load('facebookresearch/WSL-Images', 'resnext101_32x8d_wsl')
+torch.save(model, 'resnext101_32x8d_wsl_checkpoint.pth')
+```
+    
+These steps create the below directory tree.
 ```
 .
-
 ├── bin
 ├── checkpoints
 ├── data
