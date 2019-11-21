@@ -65,7 +65,7 @@ parser.add_option('-p', '--nbags', action="store", dest="nbags", help="Number of
 parser.add_option('-e', '--epochs', action="store", dest="epochs", help="epochs", default="5")
 parser.add_option('-j', '--start', action="store", dest="start", help="Start epochs", default="0")
 parser.add_option('-b', '--batchsize', action="store", dest="batchsize", help="batch size", default="16")
-parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/rsna/")
+parser.add_option('-r', '--rootpath', action="store", dest="rootpath", help="root directory", default="/share/dhanley2/submit/rsna/")
 parser.add_option('-i', '--imgpath', action="store", dest="imgpath", help="root directory", default="data/mount/512X512X6/")
 parser.add_option('-w', '--workpath', action="store", dest="workpath", help="Working path", default="densenetv1/weights")
 parser.add_option('-f', '--weightsname', action="store", dest="weightsname", help="Weights file name", default="pytorch_model.bin")
@@ -203,8 +203,8 @@ if n_gpu > 0:
 torch.backends.cudnn.deterministic = True
     
 logger.info('Load Dataframes')
-dir_train_img = os.path.join(path_data, 'proc')
-dir_test_img = os.path.join(path_data, 'proc')
+dir_train_img = os.path.join(path_data, 'proc/')
+dir_test_img = os.path.join(path_data, 'proc/')
 
 # Parameters
 n_classes = 6
@@ -212,17 +212,32 @@ label_cols = ['epidural', 'intraparenchymal', 'intraventricular', 'subarachnoid'
 
 train = pd.read_csv(os.path.join(path_data, 'train.csv.gz'))
 test = pd.read_csv(os.path.join(path_data, 'test.csv.gz'))
+logger.info('Trn shape {} {}'.format(*train.shape))
+logger.info('Tst shape {} {}'.format(*test.shape))
+
+
+logger.info('Processed img path : {}'.format(os.path.join(dir_train_img, '**.jpg')))
+
 png = glob.glob(os.path.join(dir_train_img, '*.jpg'))
 png = [os.path.basename(png)[:-4] for png in png]
+logger.info('Count of pngs : {}'.format(len(png)))
+
 train_imgs = set(train.Image.tolist())
 png = [p for p in png if p in train_imgs]
 logger.info('Number of images to train on {}'.format(len(png)))
 png = np.array(png)
 train = train.set_index('Image').loc[png].reset_index()
+logger.info('Trn shape {} {}'.format(*train.shape))
 
 # get fold
 valdf = train[train['fold']==fold].reset_index(drop=True)
 trndf = train[train['fold']!=fold].reset_index(drop=True)
+# To make things easy, if the val dataset is empty, we will sanity check it on some records
+if valdf.shape[0]==0:
+    valdf = trndf.head(1000).copy()
+logger.info('Trn shape {} {}'.format(*trndf.shape))
+logger.info('Val shape {} {}'.format(*valdf.shape))
+
 
 # Data loaders
 mean_img = [0.22363983, 0.18190407, 0.2523437 ]
@@ -300,7 +315,7 @@ for epoch in range(n_epochs):
         logger.info('Training Loss: {:.4f}'.format(epoch_loss))
         for param in model.parameters():
             param.requires_grad = False
-        output_model_file = 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold)
+        output_model_file = os.path.join(WORK_DIR, 'weights/model_{}_epoch{}_fold{}.bin'.format(WTSIZE, epoch, fold))
         torch.save(model.state_dict(), output_model_file)
     else:
         del model
@@ -334,7 +349,7 @@ for epoch in range(n_epochs):
         # Extract embedding layer
         model.module.fc = Identity()
         model.eval()
-        DATASETS = ['tst', 'val', 'trn']
+        DATASETS = ['tst', 'val', 'trn'] 
         LOADERS = [tstloader, valloader, trnloader]
         for typ, loader in zip(DATASETS, LOADERS):
             ls = []
@@ -346,7 +361,9 @@ for epoch in range(n_epochs):
                 out = model(inputs)
                 ls.append(out.detach().cpu().numpy())
             outemb = np.concatenate(ls, 0).astype(np.float32)
-            logger.info('Write embeddings : shape {} {}'.format(*outemb))
-            np.savez_compressed(os.path.join(WORK_DIR, 'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), outemb))
-            dumpobj(os.path.join(WORK_DIR, 'loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch), loader))
+            logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
+            fembname =  'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)
+            logger.info('Embedding file name : {}'.format(fembname))
+            np.savez_compressed(os.path.join(WORK_DIR, 'emb{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), outemb)
+            dumpobj(os.path.join(WORK_DIR, 'loader{}_{}_size{}_fold{}_ep{}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), loader)
             gc.collect()
