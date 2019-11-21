@@ -39,6 +39,8 @@ Alternatively you can call dockerhub container `darraghdog/kaggle:apex_build`.
 This creates the below directory tree.
 ```
 .
+
+├── bin
 ├── checkpoints
 ├── data
 │   └── raw
@@ -53,6 +55,8 @@ This creates the below directory tree.
     ├── resnext101v02
     │   └── weights
     └── resnext101v03
+    │   └── weights
+    └── resnext101v04
         └── weights
 ```
    
