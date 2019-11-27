@@ -1,4 +1,6 @@
-### RSNA Intracranial Hemorrhage Detection
+### RSNA Intracranial Hemorrhage Detection  
+This is the source code for the second place solution to the [RSNA2019 Intracranial Hemorrhage Detection Challenge](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview).  
+Video overview: [link](https://www.youtube.com/watch?v=U7WjTtGSOKA&t=)  
   
 ##### Hosted on [Kaggle](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/overview); Sponsored by [RSNA](https://www.rsna.org/); Team [NoBrainer](https://www.kaggle.com/c/rsna-intracranial-hemorrhage-detection/team) Darragh Hanley & Dmitry Larko
    
