@@ -89,7 +89,7 @@ Note: each time you run/rerun one of the above, you should ensure the `/preds` d
 
 #### 3. Retrain full models (10 days)    
      
-1.  Run script `sh ./bin/run_12_trainfull_imgclassifier.sh` to train the image pipeline.
+1.  Run script `sh ./bin/run_12_trainfull_imgclassifier.sh` to train the image pipeline. Image classifier trained weights [here](https://drive.google.com/drive/folders/1HgP77514HA5PgUckfFj42o1dQJvq9mOE?usp=sharing).
 2.  Run script `sh ./bin/run_13_trainfull_embedding_extract.sh` to extract image embeddings.
 3.  Run script `sh ./bin/run_14_trainfull_sequential.sh` to train the sequential lstm.
 4.  Run script `python ./scripts/bagged_submission.py` to create bagged submission.
